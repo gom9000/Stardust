@@ -20,7 +20,7 @@ import net.gommagomma.stardust.ui.SimulationPanel;
 
 public class Main
 {
-	public static final String WINDOW_TITLE = "Simulazione Accrezione Polveri Protoplanetarie";
+	public static final String WINDOW_TITLE = "Stardust — Accrescimento Gravitazionale Planetesimale";
 
 
     public static void main(String[] args)

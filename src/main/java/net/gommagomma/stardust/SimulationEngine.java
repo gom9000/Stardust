@@ -145,12 +145,7 @@ public class SimulationEngine {
 
             for (int j = i + 1; j < numParticles; j++) {
                 Particle p2 = particles.get(j);
-
-                Vector3D fTotal = Physics.calculateGravity(p1, p2);
-                if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
-                    Vector3D fE = Physics.calculateCoulomb(p1, p2);
-                    fTotal = fTotal.add(fE);
-                }
+                Vector3D fTotal = Physics.calculateGravityAndElectrostaticForce(p1, p2);
 
                 p1.addForce(fTotal);
                 p2.addForce(fTotal.multiply(-1));
@@ -161,24 +156,15 @@ public class SimulationEngine {
     private void computeForcesParallel() {
         java.util.stream.IntStream.range(0, particles.size()).parallel().forEach(i -> {
             Particle p1 = particles.get(i);
-
             double fx = 0.0, fy = 0.0, fz = 0.0;
 
             for (int j = 0; j < particles.size(); j++) {
                 if (i == j) continue;
                 Particle p2 = particles.get(j);
-
-                Vector3D fG = Physics.calculateGravity(p1, p2);
-                fx += fG.getX();
-                fy += fG.getY();
-                fz += fG.getZ();
-
-                if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
-                    Vector3D fE = Physics.calculateCoulomb(p1, p2);
-                    fx += fE.getX();
-                    fy += fE.getY();
-                    fz += fE.getZ();
-                }
+                Vector3D f = Physics.calculateGravityAndElectrostaticForce(p1, p2);
+                fx += f.getX();
+                fy += f.getY();
+                fz += f.getZ();
             }
 
             p1.addForce(new Vector3D(fx, fy, fz));

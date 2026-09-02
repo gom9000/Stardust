@@ -16,6 +16,19 @@ public class Physics
     //
 
 	/**
+	 * Forza netta N-body esercitata da p2 su p1: somma della componente gravitazionale e,
+	 * se SimulationConfig.ENABLE_ELECTROSTATIC_FORCE è attivo,
+	 * della componente elettrostatica (Coulomb).
+	 */
+	public static Vector3D calculateGravityAndElectrostaticForce(Particle p1, Particle p2) {
+	    Vector3D f = calculateGravity(p1, p2);
+	    if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
+	        f = f.add(calculateCoulomb(p1, p2));
+	    }
+	    return f;
+	}
+
+	/**
 	 * Forza gravitazionale newtoniana esercitata da p2 su p1. 
 	 */
 	public static Vector3D calculateGravity(Particle p1, Particle p2)

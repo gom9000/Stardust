@@ -662,38 +662,9 @@ public class BarnesHutTree {
          *
          * Il controllo other != target viene fatto dal chiamante.
          */
-        private void addDirect(
-            Particle target,
-            Particle other,
-            ForceAccumulator acc
-        ) {
-
-            Vector3D gravity =
-                Physics.calculateGravity(
-                    target,
-                    other
-                );
-
-            acc.add(
-                gravity.getX(),
-                gravity.getY(),
-                gravity.getZ()
-            );
-
-            if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
-
-                Vector3D coulomb =
-                    Physics.calculateCoulomb(
-                        target,
-                        other
-                    );
-
-                acc.add(
-                    coulomb.getX(),
-                    coulomb.getY(),
-                    coulomb.getZ()
-                );
-            }
+        private void addDirect(Particle target, Particle other, ForceAccumulator acc) {
+        	Vector3D f = Physics.calculateGravityAndElectrostaticForce(target, other);
+            acc.add(f.getX(), f.getY(), f.getZ());
         }
     }
 }
