@@ -42,7 +42,7 @@ public final class SimulationConfig
     // Perturbazione e Accrescimento
     public static final double FRAGMENTATION_MULTIPLIER = 2.0; // Deve restare > 1.0 (altrimenti la zona di rimbalzo sparisce)
     public static final double INITIAL_VELOCITY_DISPERSION = 0.005; // Eccita le eccentricita' e le inclinazioni permettendo agli anelli di incrociarsi.
-    public static final double DUST_COHESION_THRESHOLD = 2.5; //0.01 * V_REF_STAR;
+    public static final double DUST_COHESION_THRESHOLD = 2.5; //
     public static final double GRAVITATIONAL_CAPTURE_MULTIPLIER = 1.0; // Moltiplicatore della v_esc mutua per la soglia di accrescimento
     public static final double HILL_AMPLIFICATION = 1.0;
     public static final double HILL_CAPTURE_FRACTION = 0.20; // frazione del raggio di cattura
@@ -58,7 +58,7 @@ public final class SimulationConfig
     // Rendering
     public static final int FPS = 15;
     public static final int TOP_ORBITS_COUNT = 3; // Numero di orbite principali da evidenziare per massa del corpo
-    public static final double GAP_MIN_CLEARING_RATIO = 0.7; // Percentuale minima di svuotamento radiale per evidenziare le zone di gap
+    public static final double GAP_MIN_CLEARING_RATIO = 0.7; // Percentuale minima di svuotamento radiale per evidenziare le zone a bassa densità
     public static final double DENSITY_RING_WIDTH = 0.001 * AU; // Larghezza dell'anello per l'analisi della densità (metri)
 
     // Logging

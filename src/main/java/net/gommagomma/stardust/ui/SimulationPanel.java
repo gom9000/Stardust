@@ -6,6 +6,8 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
@@ -50,6 +52,9 @@ public class SimulationPanel extends JPanel {
     // Flag per il lock della telecamera sulla particella selezionata
     private boolean isCameraLocked = false;
 
+    // ID della singola particella su cui è attiva la visualizzazione del solco mirato (-1 = nessuna)
+    private int activeGapParticleId = -1;
+
     // Gestione Zoom & Pan
     private double zoomFactor = 1.0;
     private double panX = 0.0;
@@ -61,6 +66,17 @@ public class SimulationPanel extends JPanel {
 
     public SimulationPanel() {
         this.setBackground(Color.BLACK);
+        this.setFocusable(true);
+
+        // --- INTERAZIONI TASTIERA: ATTIVAZIONE SOLCO MIRATO CON 'G' ---
+        this.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyChar() == 'g' || e.getKeyChar() == 'G') {
+                    toggleGapForSelectedParticle();
+                }
+            }
+        });
 
         // --- INTERAZIONI MOUSE: CLICK SELEZIONE & PANNING ---
         MouseAdapter mouseHandler = new MouseAdapter() {
@@ -72,7 +88,6 @@ public class SimulationPanel extends JPanel {
                     if (e.getClickCount() == 2) {
                         resetView();
                     } else {
-                        // Passiamo la presenza del tasto CTRL premuto alla funzione di gestione click
                         handleMouseClick(e.getX(), e.getY(), e.isControlDown());
                     }
                 }
@@ -82,7 +97,6 @@ public class SimulationPanel extends JPanel {
             public void mousePressed(MouseEvent e) {
                 if (SwingUtilities.isRightMouseButton(e) || SwingUtilities.isMiddleMouseButton(e)) {
                     lastPt = e.getPoint();
-                    // Il pan manuale sblocca la fotocamera
                     isCameraLocked = false;
                 }
             }
@@ -127,17 +141,31 @@ public class SimulationPanel extends JPanel {
     }
 
     /**
-     * Ripristina la vista di default (zoom, posizione e sblocco telecamera).
+     * Ripristina la vista di default (zoom, posizione, sblocco telecamera e reset solchi).
      */
     public void resetView() {
         this.zoomFactor = 1.0;
         this.panX = 0.0;
         this.panY = 0.0;
         this.isCameraLocked = false;
+        this.selectedParticleId = -1;
+        this.activeGapParticleId = -1;
         repaint();
     }
 
+    private synchronized void toggleGapForSelectedParticle() {
+        if (selectedParticleId != -1) {
+            if (activeGapParticleId == selectedParticleId) {
+                activeGapParticleId = -1; // Disattiva se era già attivo su questo corpo
+            } else {
+                activeGapParticleId = selectedParticleId; // Attiva in esclusiva su questo corpo
+            }
+            repaint();
+        }
+    }
+
     private void handleMouseClick(int mouseX, int mouseY, boolean isCtrlPressed) {
+        this.requestFocusInWindow();
         synchronized (this) {
             if (particleCount == 0) return;
 
@@ -174,28 +202,24 @@ public class SimulationPanel extends JPanel {
                 }
             }
 
-            // Gestione selezione e Lock con CTRL
             if (closestIdx == -1) {
+                // Click a vuoto: deseleziona tutto e rimuove la fascia verde
                 selectedParticleId = -1;
+                activeGapParticleId = -1;
                 isCameraLocked = false;
             } else {
                 int clickedId = renderId[closestIdx];
-                
-                if (clickedId == selectedParticleId) {
-                    // Se la particella era già selezionata:
-                    if (isCtrlPressed) {
-                        // CTRL+Click toggle lo stato del lock
+                if (isCtrlPressed) {
+                    if (selectedParticleId == clickedId) {
+                        // Clicca sullo stesso corpo con Ctrl: inverte il blocco della telecamera
                         isCameraLocked = !isCameraLocked;
                     } else {
-                        // Click semplice su particella già selezionata -> deseleziona tutto
-                        selectedParticleId = -1;
-                        isCameraLocked = false;
+                        // Clicca su un nuovo corpo con Ctrl: seleziona e blocca subito la telecamera
+                        selectedParticleId = clickedId;
+                        isCameraLocked = true;
                     }
                 } else {
-                    // Nuova particella selezionata:
                     selectedParticleId = clickedId;
-                    // Il lock si attiva SOLO SE CTRL è premuto durante il click
-                    isCameraLocked = isCtrlPressed;
                 }
             }
         }
@@ -281,6 +305,7 @@ public class SimulationPanel extends JPanel {
             if (selectedIdx == -1) {
                 isCameraLocked = false;
                 selectedParticleId = -1;
+                activeGapParticleId = -1;
             }
         }
 
@@ -303,8 +328,21 @@ public class SimulationPanel extends JPanel {
         int starRadiusPx = (int) Math.max(4.0, 6.0 * Math.sqrt(zoomFactor));
         g2.fillOval(centerX - starRadiusPx, centerY - starRadiusPx, starRadiusPx * 2, starRadiusPx * 2);
 
-        // 1b. Gap radiali
+        // 1b. Gap radiali agnostici (mappa globale di densità)
         drawLowDensityRadialGaps(g2, x, y, count, scale, centerX, centerY);
+
+        // 1d. Disegno dell'unica fascia di clearing mirata (se attiva)
+        if (activeGapParticleId != -1) {
+            int gapIdx = -1;
+            for (int i = 0; i < count; i++) {
+                if (ids[i] == activeGapParticleId) { gapIdx = i; break; }
+            }
+            if (gapIdx != -1 && mass[gapIdx] > 0) {
+                drawSinglePlanetaryClearingZone(g2, x, y, count, x[gapIdx], y[gapIdx], vx[gapIdx], vy[gapIdx], mass[gapIdx], scale, centerX, centerY);
+            } else {
+                activeGapParticleId = -1; // Il corpo associato non esiste più o è fuso
+            }
+        }
 
         // 2. Top N corpi
         int[] topIndices = findTopMassiveIndices(mass, count, SimulationConfig.TOP_ORBITS_COUNT);
@@ -402,20 +440,21 @@ public class SimulationPanel extends JPanel {
 
         // 5. HUD Selezione
         if (selectedIdx != -1) {
+            boolean hasGapActive = (activeGapParticleId == ids[selectedIdx]);
             drawSelectionHUD(g2, ids[selectedIdx], x[selectedIdx], y[selectedIdx],
                              vx[selectedIdx], vy[selectedIdx],
-                             mass[selectedIdx], radius[selectedIdx], merged[selectedIdx]);
+                             mass[selectedIdx], radius[selectedIdx], merged[selectedIdx], hasGapActive);
         }
 
         drawTimeHUD(g2, simulatedTimeSeconds, currentDtSeconds);
     }
 
     private void drawSelectionHUD(Graphics2D g2, int id, float rx, float ry,
-                                  float vx, float vy, double m, float r, boolean isMerged) {
+                                  float vx, float vy, double m, float r, boolean isMerged, boolean hasGapActive) {
         int hudX = 15;
         int hudY = 15;
         int hudWidth = 220;
-        int hudHeight = 115;
+        int hudHeight = 130;
 
         g2.setColor(new Color(10, 15, 30, 200));
         g2.fillRoundRect(hudX, hudY, hudWidth, hudHeight, 10, 10);
@@ -424,7 +463,6 @@ public class SimulationPanel extends JPanel {
         g2.setStroke(new BasicStroke(1.0f));
         g2.drawRoundRect(hudX, hudY, hudWidth, hudHeight, 10, 10);
 
-        g2.setColor(Color.WHITE);
         int textX = hudX + 12;
         int textY = hudY + 20;
         int lineHeight = 17;
@@ -442,6 +480,9 @@ public class SimulationPanel extends JPanel {
         g2.drawString(String.format("Raggio: %.1f km", radiusKm), textX, textY + lineHeight * 2);
         g2.drawString(String.format("Distanza R: %.4f AU", rAU), textX, textY + lineHeight * 3);
         g2.drawString(String.format("Velocità V: %.2f km/s", vKmS), textX, textY + lineHeight * 4);
+        
+        g2.setColor(new Color(0, 255, 180));
+        g2.drawString(String.format("Solco [G]: %s", hasGapActive ? "ATTIVO" : "DISATTIVO"), textX, textY + lineHeight * 5);
     }
 
     private int[] findTopMassiveIndices(double[] mass, int count, int topN) {
@@ -564,6 +605,58 @@ public class SimulationPanel extends JPanel {
                 g2.drawOval(centerX - (drawDiameter / 2), centerY - (drawDiameter / 2), drawDiameter, drawDiameter);
             }
         }
+    }
+
+    private void drawSinglePlanetaryClearingZone(Graphics2D g2, float[] x, float[] y, int count, 
+                                                 double rx, double ry, double vx, double vy, 
+                                                 double mass, double scale, int centerX, int centerY) {
+        double mu = SimulationConfig.G * SimulationConfig.STAR_MASS;
+        double rMag = Math.hypot(rx, ry);
+        if (rMag == 0) return;
+
+        double vMag = Math.hypot(vx, vy);
+        double energy = (vMag * vMag / 2.0) - (mu / rMag);
+        if (energy >= 0) return; 
+
+        double a = -mu / (2.0 * energy); // Semiasse maggiore
+        double starMass = SimulationConfig.STAR_MASS;
+        double hillRadius = a * Math.cbrt((mass / starMass) / 3.0);
+        double clearingHalfWidth = Math.max(hillRadius * 2.5, a * 0.02);
+
+        double rInnerWorld = Math.max(0, a - clearingHalfWidth);
+        double rOuterWorld = a + clearingHalfWidth;
+
+        // Campionamento empirico della densità effettiva nell'anello
+        int particlesInAnnulus = 0;
+        int particlesInControlZones = 0;
+        double controlWidth = clearingHalfWidth;
+
+        for (int i = 0; i < count; i++) {
+            double dist = Math.hypot(x[i], y[i]);
+            if (dist >= rInnerWorld && dist <= rOuterWorld) {
+                particlesInAnnulus++;
+            } else if ((dist >= rInnerWorld - controlWidth && dist < rInnerWorld) || 
+                   (dist > rOuterWorld && dist <= rOuterWorld + controlWidth)) {
+                particlesInControlZones++;
+            }
+        }
+
+        double clearingDepth = 0.0;
+        if (particlesInControlZones > 0) {
+            double expectedDensity = particlesInControlZones / 2.0;
+            clearingDepth = Math.max(0.0, 1.0 - (particlesInAnnulus / expectedDensity));
+        }
+
+        double rInnerPx = rInnerWorld * scale;
+        double rOuterPx = rOuterWorld * scale;
+        double thicknessPx = Math.max(2.0, rOuterPx - rInnerPx);
+        double avgRadiusPx = (rInnerPx + rOuterPx) / 2.0;
+        int drawDiameter = (int) (avgRadiusPx * 2.0);
+
+        int alpha = (int) (30 + clearingDepth * 150);
+        g2.setColor(new Color(0, 255, 180, Math.min(255, Math.max(20, alpha))));
+        g2.setStroke(new BasicStroke((float) thicknessPx));
+        g2.drawOval(centerX - (drawDiameter / 2), centerY - (drawDiameter / 2), drawDiameter, drawDiameter);
     }
 
     private void drawTimeHUD(Graphics2D g2, double totalSimulatedSeconds, double currentDt) {

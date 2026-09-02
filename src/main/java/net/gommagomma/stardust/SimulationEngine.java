@@ -141,6 +141,10 @@ public class SimulationEngine {
         int numParticles = particles.size();
 
         for (int i = 0; i < numParticles; i++) {
+            particles.get(i).resetPotentialEnergy();
+        }
+
+        for (int i = 0; i < numParticles; i++) {
             Particle p1 = particles.get(i);
 
             for (int j = i + 1; j < numParticles; j++) {
@@ -149,14 +153,25 @@ public class SimulationEngine {
 
                 p1.addForce(fTotal);
                 p2.addForce(fTotal.multiply(-1));
+                
+                double dist = p1.getPosition().distanceTo(p2.getPosition());
+                if (dist > 0) {
+                    double pot = -(SimulationConfig.G * p1.getMass() * p2.getMass()) / dist;
+                    p1.addPotentialEnergy(pot);
+                    p2.addPotentialEnergy(pot);
+                }
             }
         }
     }
 
     private void computeForcesParallel() {
+    	particles.parallelStream().forEach(Particle::resetPotentialEnergy);
+    	
         java.util.stream.IntStream.range(0, particles.size()).parallel().forEach(i -> {
-            Particle p1 = particles.get(i);
             double fx = 0.0, fy = 0.0, fz = 0.0;
+            double potentialSum = 0.0;
+            
+            Particle p1 = particles.get(i);
 
             for (int j = 0; j < particles.size(); j++) {
                 if (i == j) continue;
@@ -165,9 +180,16 @@ public class SimulationEngine {
                 fx += f.getX();
                 fy += f.getY();
                 fz += f.getZ();
+                
+                // calcolo del potenziale
+                double dist = p1.getPosition().distanceTo(p2.getPosition());
+                if (dist > 0) {
+                    potentialSum -= (SimulationConfig.G * p1.getMass() * p2.getMass()) / dist;
+                }
             }
 
             p1.addForce(new Vector3D(fx, fy, fz));
+            p1.addPotentialEnergy(potentialSum);
         });
     }
 
@@ -176,6 +198,7 @@ public class SimulationEngine {
         int n = particles.size();
         java.util.stream.IntStream.range(0, n).parallel().forEach(i -> {
             Particle p = particles.get(i);
+            p.resetPotentialEnergy();
             p.addForce(tree.computeForce(p));
         });
     }
@@ -374,25 +397,36 @@ public class SimulationEngine {
         double totalMass = 0;
         double maxMass = 0;
         double maxRadius = 0;
-        double totalEnergy = 0;
+        double totalPotentialEnergy = 0;
+        double totalKineticEnergy = 0;
         long aliveCount = 0;
 
         for (Particle p : particles) {
-        	if (p.isAlive()) {
+            if (p.isAlive()) {
                 aliveCount++;
-                //totalEnergy += Physics.calculateParticleEnergy(p, particles); // molto lento!!!
+                totalPotentialEnergy += p.getPotentialEnergy();
+                
+                // Calcolo energia cinetica: 0.5 * m * v^2
+                // v^2 è la norma al quadrato del vettore velocità (vx*vx + vy*vy + vz*vz)
+                Vector3D vel = p.getVelocity();
+                double speedSq = vel.getX() * vel.getX() + vel.getY() * vel.getY() + vel.getZ() * vel.getZ();
+                totalKineticEnergy += 0.5 * p.getMass() * speedSq;
+
                 totalMass += p.getMass();
                 if (p.getMass() > maxMass) {
                     maxMass = p.getMass();
                     maxRadius = p.getRadius();
                 }
-               
             }
         }
 
+        // Dividiamo per 2 il potenziale per evitare il doppio conteggio delle coppie
+        double totalMechanicalEnergy = totalKineticEnergy + totalPotentialEnergy / 2.0;
+
         System.out.printf(
-                "[t=%12.1fs] ENERGIA TOT: %.8e J | STATO: %d particelle | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
-                simulationTime, totalEnergy, aliveCount, totalMass, maxMass, maxRadius, 
+                "[t=%12.1fs] ENERGIA: %.8e J | STATO: %d particelle | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
+                simulationTime, totalMechanicalEnergy,
+                aliveCount, totalMass, maxMass, maxRadius, 
                 totalMerges.get(), totalBounces.get(), totalFragmentations.get(), totalStarFalls.get(), totalEscapes.get(), 
                 forceMs, integrationMs, collisionMs);
     }

@@ -18,6 +18,8 @@ public class Particle
     private double density;        // kg/m^3 (es. 100 per polvere soffice, 3000 per roccia)
     private int mergerCount = 0;   // quante volte questo corpo si è fuso con altri
 
+    private double potentialEnergy = 0.0;
+    
     // Proprietà cinematiche (vettori 3D)
     private Vector3D position;
     private Vector3D velocity;
@@ -77,6 +79,19 @@ public class Particle
         this.mergerCount = mergerCount;
     }
  
+    
+    public void resetPotentialEnergy() {
+        this.potentialEnergy = 0.0;
+    }
+
+    public void addPotentialEnergy(double energy) {
+        this.potentialEnergy += energy;
+    }
+
+    public double getPotentialEnergy() {
+        return this.potentialEnergy;
+    }
+    
 
     // Da chiamare dopo aver ripristinato un checkpoint, cosi' che eventuali NUOVE
     // particelle create in seguito non riusino id gia' presenti nel file caricato.
