@@ -1,7 +1,3 @@
-StarDust
-Type: Astrophysics Simulation | Status: Experimental / Workbench
-An exploratory N-body simulation modeling the early stages of protoplanetary formation. It simulates the physical transition from electrostatic interactions between interstellar dust grains to gravity-dominated accretion, incorporating fluid gas drag to observe the emergence of planetesimals.
-
 # Stardust
 ## Dalla polvere ai pianeti
 Simulare la formazione planetaria, dal singolo grano di polvere microscopico fino a un pianeta completo, non è (solo) una questione di potenza di calcolo. È un problema in cui, lungo il percorso, cambiano radicalmente sia la scala fisica in gioco sia le forze che dominano il sistema. La ricerca scientifica affronta il problema per fasi, ciascuna con i propri modelli e le proprie ipotesi semplificative.
