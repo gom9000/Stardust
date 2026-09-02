@@ -1,7 +1,12 @@
-package net.gommagomma.stardust.core;
+package net.gommagomma.stardust.physics.barneshut;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.math.Vector3D;
+import net.gommagomma.stardust.model.Particle;
+import net.gommagomma.stardust.physics.Physics;
 
 /**
  * Barnes-Hut 3D (octree) per il calcolo approssimato delle forze

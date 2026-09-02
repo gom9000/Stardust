@@ -11,9 +11,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.gommagomma.stardust.core.Particle;
-import net.gommagomma.stardust.core.SimulationEngine;
-import net.gommagomma.stardust.core.Vector3D;
+import net.gommagomma.stardust.SimulationEngine;
+import net.gommagomma.stardust.math.Vector3D;
+import net.gommagomma.stardust.model.Particle;
 
 /**
  * Salva/ripristina l'intero stato della simulazione (particelle + contatori + tempo) su un file di testo,

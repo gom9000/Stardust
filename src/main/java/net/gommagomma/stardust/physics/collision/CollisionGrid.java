@@ -1,9 +1,12 @@
-package net.gommagomma.stardust.core;
+package net.gommagomma.stardust.physics.collision;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import net.gommagomma.stardust.math.Vector3D;
+import net.gommagomma.stardust.model.Particle;
 
 public class CollisionGrid {
 

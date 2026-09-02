@@ -1,6 +1,8 @@
-package net.gommagomma.stardust.core;
+package net.gommagomma.stardust.model;
 
 import java.util.concurrent.atomic.AtomicInteger;
+
+import net.gommagomma.stardust.math.Vector3D;
 
 public class Particle
 {

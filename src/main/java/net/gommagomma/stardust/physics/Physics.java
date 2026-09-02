@@ -1,7 +1,13 @@
-package net.gommagomma.stardust.core;
+package net.gommagomma.stardust.physics;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.math.Vector3D;
+import net.gommagomma.stardust.model.Particle;
+import net.gommagomma.stardust.physics.collision.CollisionResult;
+import net.gommagomma.stardust.physics.gravity.GravityCalculator;
 
 public class Physics
 {
@@ -9,44 +15,19 @@ public class Physics
     // FORZE DI CAMPO E FLUIDO
     //
 
-    /**
-     * Forza gravitazionale esercitata da p2 su p1 (sempre attrattiva).
-     */
-    public static Vector3D calculateGravity(Particle p1, Particle p2) {
-        Vector3D diff = p2.getPosition().subtract(p1.getPosition());
-        double distanceSquared = diff.magnitudeSquared();
-
-        if (distanceSquared == 0) return new Vector3D(0, 0, 0);
-
-        // r^2 + epsilon^2
-        double epsSq = SimulationConfig.SOFTENING * SimulationConfig.SOFTENING;
-        double effectiveDistSq = distanceSquared + epsSq;
-        double effectiveDist = Math.sqrt(effectiveDistSq);
-
-        // F / |r| = (G * m1 * m2) / (r^2 + epsilon^2)^(3/2)
-        double forceFactor = (SimulationConfig.G * p1.getMass() * p2.getMass()) / (effectiveDistSq * effectiveDist);
-
-        return diff.multiply(forceFactor);
+	/**
+	 * Forza gravitazionale newtoniana esercitata da p2 su p1. 
+	 */
+	public static Vector3D calculateGravity(Particle p1, Particle p2)
+	{
+        return GravityCalculator.calculateGravity(p1, p2, SimulationConfig.ACTIVE_GRAVITY_MODEL);
     }
 
     /**
-     * Forza attrattiva verso la stella centrale posizionata nell'origine (0,0,0).
+     * Forza attrattiva verso la stella.
      */
     public static Vector3D calculateCentralStarGravity(Particle p) {
-        Vector3D pos = p.getPosition();
-        double distanceSquared = pos.magnitudeSquared();
-
-        if (distanceSquared == 0) return new Vector3D(0, 0, 0);
-
-        double epsSq = SimulationConfig.SOFTENING * SimulationConfig.SOFTENING;
-        double effectiveDistSq = distanceSquared + epsSq;
-        double effectiveDist = Math.sqrt(effectiveDistSq);
-
-        // Force = (G * M_star * m) / (r_eff^3)
-        double forceFactor = (SimulationConfig.G * SimulationConfig.STAR_MASS * p.getMass()) / (effectiveDistSq * effectiveDist);
-
-        // Direzione verso l'origine (-pos)
-        return pos.multiply(-forceFactor);
+    	return GravityCalculator.calculateGravity(p, SimulationConfig.STAR);
     }
 
     /**

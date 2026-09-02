@@ -1,8 +1,15 @@
-package net.gommagomma.stardust.core;
+package net.gommagomma.stardust;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+
+import net.gommagomma.stardust.math.Vector3D;
+import net.gommagomma.stardust.model.Particle;
+import net.gommagomma.stardust.physics.Physics;
+import net.gommagomma.stardust.physics.barneshut.BarnesHutTree;
+import net.gommagomma.stardust.physics.collision.CollisionGrid;
+import net.gommagomma.stardust.physics.collision.CollisionResult;
 
 public class SimulationEngine {
 

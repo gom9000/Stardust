@@ -20,8 +20,8 @@ import javax.imageio.ImageIO;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
-import net.gommagomma.stardust.core.Particle;
-import net.gommagomma.stardust.core.SimulationConfig;
+import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.model.Particle;
 
 public class SimulationPanel extends JPanel {
 

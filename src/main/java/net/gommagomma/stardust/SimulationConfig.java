@@ -1,8 +1,12 @@
-package net.gommagomma.stardust.core;
+package net.gommagomma.stardust;
 
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+
+import net.gommagomma.stardust.math.Vector3D;
+import net.gommagomma.stardust.model.Particle;
+import net.gommagomma.stardust.physics.gravity.GravityModel;
 
 
 public final class SimulationConfig
@@ -14,19 +18,21 @@ public final class SimulationConfig
     public static final double G = 6.674e-11;       // Costante di gravitazione universale (N*m^2/kg^2)
     public static final double K_COULOMB = 8.99e9;  // Costante di Coulomb (N*m^2/C^2)
 
-
     // Simulation parameters
     public static final int N = 15000;                      // Numero particelle
     public static final double DT = 3600.0;                   // Step temporale (secondi)
-    public static final double SOFTENING = 500.0;         // Softening parameter (m)
+    public static final double SOFTENING = 1; //500.0;         // Softening parameter (m)
+    public static final GravityModel ACTIVE_GRAVITY_MODEL = GravityModel.NEWTONIAN_CLAMPED;
 
     // Parametri Astronomici
     public static final double AU = 1.496e11;
     public static final double STAR_MASS = 1.989e30;       // Massa stella (sole) centrale (kg)
-    public static final double STAR_RADIUS = 6.963e8;          // 
+    public static final double STAR_RADIUS = 6.963e8;          //
+    public static final double STAR_DENSITY = 1408.0;     // Densità media solare (kg/m³)
     public static final double DISK_INNER_RADIUS = 0.3 * AU;  // Raggio interno disco (m)
     public static final double DISK_OUTER_RADIUS = 0.7 * AU;         // Raggio esterno disco (m)
     public static final double V_REF_STAR = Math.sqrt((G * STAR_MASS) / DISK_INNER_RADIUS);
+    public static final Particle STAR = new Particle(new Vector3D(0, 0, 0), new Vector3D(0, 0, 0), STAR_MASS, 0.0, STAR_DENSITY);
 
     // Aerodinamica e Gas Drag
     public static final double GAS_DENSITY_BASE = 1.4e-9;      // Densità gas a 1 AU (kg/m^3)

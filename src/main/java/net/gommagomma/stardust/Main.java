@@ -11,11 +11,9 @@ import java.util.Random;
 import javax.swing.JFrame;
 import javax.swing.Timer;
 
-import net.gommagomma.stardust.core.Particle;
-import net.gommagomma.stardust.core.SimulationConfig;
-import net.gommagomma.stardust.core.SimulationEngine;
-import net.gommagomma.stardust.core.Vector3D;
 import net.gommagomma.stardust.io.Savepoint;
+import net.gommagomma.stardust.math.Vector3D;
+import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.ui.RenderActionListener;
 import net.gommagomma.stardust.ui.SimulationPanel;
 
@@ -165,7 +163,7 @@ public class Main
         Random rnd = new Random();
 
         // 1. INSERIMENTO PROTOPIANETI (Prenderanno ID #0, #1...)
-        // particles.add(createProtoplanet(0.4, Math.PI, 1e29, 0.0, 3000.0));
+        particles.add(createProtoplanet(0.4, Math.PI, 1e25, 0.0, 3000.0));
 
         // 2. GENERAZIONE POLVERI
         double exp = 1.0 - SimulationConfig.MASS_POWER_LAW_INDEX;

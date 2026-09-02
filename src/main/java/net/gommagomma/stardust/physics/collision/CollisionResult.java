@@ -1,4 +1,4 @@
-package net.gommagomma.stardust.core;
+package net.gommagomma.stardust.physics.collision;
 
 public enum CollisionResult {
     MERGE,

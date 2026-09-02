@@ -6,8 +6,9 @@ import java.awt.event.ActionListener;
 import java.io.File;
 
 import javax.swing.JFrame;
-import net.gommagomma.stardust.core.SimulationConfig;
-import net.gommagomma.stardust.core.SimulationEngine;
+
+import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.SimulationEngine;
 
 
 public class RenderActionListener
