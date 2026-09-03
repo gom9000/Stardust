@@ -37,6 +37,12 @@ public class SimulationEngine {
 
     private CollisionGrid collisionGrid;
 
+    private volatile boolean paused = false;
+
+    public boolean isPaused() { return paused; }
+    public void setPaused(boolean paused) { this.paused = paused; }
+    public void togglePause() { this.paused = !this.paused; }
+    
     // Costruttore per una nuova simulazione
     public SimulationEngine(List<Particle> particles) {
         this.particles = particles;
@@ -70,6 +76,14 @@ public class SimulationEngine {
     public void run() {
         running = true;
         while (running) {
+            if (paused) {
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                continue;
+            }
             step();
         }
     }
@@ -85,7 +99,7 @@ public class SimulationEngine {
             p.addForce(Physics.calculateDrag(p));
         }
 
-        // Forze N-body: gravità + Elettrica
+        // Forze N-body: gravità + Elettrostatica
         int n = particles.size();
         if (SimulationConfig.USE_BARNES_HUT && n >= SimulationConfig.BARNES_HUT_THRESHOLD) {
             computeForcesBarnesHut();

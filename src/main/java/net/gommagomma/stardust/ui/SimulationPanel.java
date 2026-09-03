@@ -2,6 +2,7 @@ package net.gommagomma.stardust.ui;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -23,11 +24,15 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.SimulationEngine;
 import net.gommagomma.stardust.model.Particle;
 
 public class SimulationPanel extends JPanel {
 
     private static final long serialVersionUID = 1L;
+
+    // Riferimento opzionale al motore per propagare lo stato di pausa (se gestito a livello engine)
+    private SimulationEngine simulationEngine;
 
     // Raggio di riferimento fisso per una particella di massa base (minima)
     private static final double MIN_PARTICLE_RADIUS = Math.cbrt((3.0 * SimulationConfig.BASE_PARTICLE_MASS_MIN)
@@ -55,6 +60,9 @@ public class SimulationPanel extends JPanel {
     // ID della singola particella su cui è attiva la visualizzazione del solco mirato (-1 = nessuna)
     private int activeGapParticleId = -1;
 
+    // --- STATO DI PAUSA ---
+    private boolean isPaused = false;
+
     // Gestione Zoom & Pan
     private double zoomFactor = 1.0;
     private double panX = 0.0;
@@ -65,14 +73,22 @@ public class SimulationPanel extends JPanel {
     private static final double ZOOM_SENSITIVITY = 1.1;
 
     public SimulationPanel() {
+        this(null);
+    }
+
+    public SimulationPanel(SimulationEngine engine) {
+        this.simulationEngine = engine;
         this.setBackground(Color.BLACK);
         this.setFocusable(true);
 
-        // --- INTERAZIONI TASTIERA: ATTIVAZIONE SOLCO MIRATO CON 'G' ---
+        // --- INTERAZIONI TASTIERA: PAUSA ('P'), SOLCO ('G') ---
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyChar() == 'g' || e.getKeyChar() == 'G') {
+                char c = Character.toLowerCase(e.getKeyChar());
+                if (c == 'p') {
+                    togglePause();
+                } else if (c == 'g') {
                     toggleGapForSelectedParticle();
                 }
             }
@@ -138,6 +154,22 @@ public class SimulationPanel extends JPanel {
             zoomFactor = newZoom;
             repaint();
         });
+    }
+
+    public void setSimulationEngine(SimulationEngine engine) {
+        this.simulationEngine = engine;
+    }
+
+    public boolean isPaused() {
+        return isPaused;
+    }
+
+    public void togglePause() {
+        isPaused = !isPaused;
+        if (simulationEngine != null) {
+            simulationEngine.setPaused(isPaused);
+        }
+        repaint();
     }
 
     /**
@@ -211,10 +243,8 @@ public class SimulationPanel extends JPanel {
                 int clickedId = renderId[closestIdx];
                 if (isCtrlPressed) {
                     if (selectedParticleId == clickedId) {
-                        // Clicca sullo stesso corpo con Ctrl: inverte il blocco della telecamera
                         isCameraLocked = !isCameraLocked;
                     } else {
-                        // Clicca su un nuovo corpo con Ctrl: seleziona e blocca subito la telecamera
                         selectedParticleId = clickedId;
                         isCameraLocked = true;
                     }
@@ -226,7 +256,6 @@ public class SimulationPanel extends JPanel {
         repaint();
     }
 
-    // Metodo THREAD-SAFE per aggiornare lo stato da disegnare
     public synchronized void updateSnapshot(List<Particle> particles, double totalTime, double dt) {
         this.simulatedTimeSeconds = totalTime;
         this.currentDtSeconds = dt;
@@ -328,10 +357,10 @@ public class SimulationPanel extends JPanel {
         int starRadiusPx = (int) Math.max(4.0, 6.0 * Math.sqrt(zoomFactor));
         g2.fillOval(centerX - starRadiusPx, centerY - starRadiusPx, starRadiusPx * 2, starRadiusPx * 2);
 
-        // 1b. Gap radiali agnostici (mappa globale di densità)
+        // 1b. Gap radiali agnostici
         drawLowDensityRadialGaps(g2, x, y, count, scale, centerX, centerY);
 
-        // 1d. Disegno dell'unica fascia di clearing mirata (se attiva)
+        // 1d. Fascia di clearing mirata (se attiva)
         if (activeGapParticleId != -1) {
             int gapIdx = -1;
             for (int i = 0; i < count; i++) {
@@ -340,7 +369,7 @@ public class SimulationPanel extends JPanel {
             if (gapIdx != -1 && mass[gapIdx] > 0) {
                 drawSinglePlanetaryClearingZone(g2, x, y, count, x[gapIdx], y[gapIdx], vx[gapIdx], vy[gapIdx], mass[gapIdx], scale, centerX, centerY);
             } else {
-                activeGapParticleId = -1; // Il corpo associato non esiste più o è fuso
+                activeGapParticleId = -1;
             }
         }
 
@@ -438,7 +467,7 @@ public class SimulationPanel extends JPanel {
             }
         }
 
-        // 5. HUD Selezione
+        // 5. HUD Selezione e Tempo
         if (selectedIdx != -1) {
             boolean hasGapActive = (activeGapParticleId == ids[selectedIdx]);
             drawSelectionHUD(g2, ids[selectedIdx], x[selectedIdx], y[selectedIdx],
@@ -447,6 +476,33 @@ public class SimulationPanel extends JPanel {
         }
 
         drawTimeHUD(g2, simulatedTimeSeconds, currentDtSeconds);
+
+        // 6. Overlay di Pausa
+        if (isPaused) {
+            drawPauseOverlay(g2);
+        }
+    }
+
+    private void drawPauseOverlay(Graphics2D g2) {
+        String msg = ">>> SIMULAZIONE IN PAUSA [PREMI 'P' PER RIPRENDERE] <<<";
+        g2.setFont(g2.getFont().deriveFont(java.awt.Font.BOLD, 13f));
+        FontMetrics fm = g2.getFontMetrics();
+        int strWidth = fm.stringWidth(msg);
+        
+        int boxWidth = strWidth + 30;
+        int boxHeight = 30;
+        int boxX = (getWidth() - boxWidth) / 2;
+        int boxY = 15;
+
+        g2.setColor(new Color(120, 20, 20, 220));
+        g2.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
+
+        g2.setColor(new Color(255, 100, 100, 240));
+        g2.setStroke(new BasicStroke(1.2f));
+        g2.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
+
+        g2.setColor(Color.WHITE);
+        g2.drawString(msg, boxX + 15, boxY + 20);
     }
 
     private void drawSelectionHUD(Graphics2D g2, int id, float rx, float ry,
@@ -618,7 +674,7 @@ public class SimulationPanel extends JPanel {
         double energy = (vMag * vMag / 2.0) - (mu / rMag);
         if (energy >= 0) return; 
 
-        double a = -mu / (2.0 * energy); // Semiasse maggiore
+        double a = -mu / (2.0 * energy);
         double starMass = SimulationConfig.STAR_MASS;
         double hillRadius = a * Math.cbrt((mass / starMass) / 3.0);
         double clearingHalfWidth = Math.max(hillRadius * 2.5, a * 0.02);
@@ -626,7 +682,6 @@ public class SimulationPanel extends JPanel {
         double rInnerWorld = Math.max(0, a - clearingHalfWidth);
         double rOuterWorld = a + clearingHalfWidth;
 
-        // Campionamento empirico della densità effettiva nell'anello
         int particlesInAnnulus = 0;
         int particlesInControlZones = 0;
         double controlWidth = clearingHalfWidth;

@@ -25,9 +25,9 @@ public class Main
 
     public static void main(String[] args)
     {
-        SimulationPanel panel = new SimulationPanel();
         SimulationEngine engine = initEngine();
         Thread engineThread = startEngineThread(engine);
+        SimulationPanel panel = new SimulationPanel(engine);
         JFrame frame = setupWindow(panel, engine, engineThread);
 
         startRenderLoop(frame, panel, engine, SimulationConfig.FPS);
