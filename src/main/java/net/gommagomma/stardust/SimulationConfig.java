@@ -64,7 +64,7 @@ public final class SimulationConfig
     // Logging
     public static final boolean LOG_ACCRETION_EVENTS = true;
     public static final boolean LOG_BOUNCE_EVENTS = true;
-    public static final int LOG_SUMMARY_EVERY_N_STEPS = 100;
+    public static final int LOG_SUMMARY_EVERY_N_STEPS = 500;
 
     // Savepoint (salva/riprendi la simulazione tra sessioni diverse)
     public static final String SAVEPOINT_FILE = "savepoint.txt";
