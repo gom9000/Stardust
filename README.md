@@ -72,20 +72,20 @@ Regione anulare a bassa densità di materiale che si forma nel disco protoplanet
 
 #### Regimi di Epstein e Stokes (Attrito del Gas)
 Sono i due regimi fisici che descrivono la resistenza aerodinamica esercitata dal gas sul moto dei corpi solidi a seconda delle loro dimensioni rispetto al gas circostante:
-    - **Regime di Epstein**: Si applica quando il diametro del corpo è inferiore o comparabile al cammino libero medio delle molecole di gas. In questo caso le molecole colpiscono il corpo individualmente.
-    - **Regime di Stokes**: Si applica quando il corpo è sufficientemente grande rispetto al cammino libero medio delle molecole, permettendo di trattare il gas come un fluido continuo caratterizzato da una propria viscosità.
+- **Regime di Epstein**: Si applica quando il diametro del corpo è inferiore o comparabile al cammino libero medio delle molecole di gas. In questo caso le molecole colpiscono il corpo individualmente.
+- **Regime di Stokes**: Si applica quando il corpo è sufficientemente grande rispetto al cammino libero medio delle molecole, permettendo di trattare il gas come un fluido continuo caratterizzato da una propria viscosità.
 
 #### Energia di Legame Gravitazionale e Strutturale
-    - **Energia di legame strutturale**: La soglia di energia meccanica legata alla coesione interna del materiale solido (roccia, ghiaccio o polvere), fondamentale per resistere agli urti nei corpi di piccola scala dove la gravità è trascurabile.
-    - **Energia di legame gravitazionale**: L'energia totale necessaria affinché tutti i frammenti di un corpo disgregato superino la mutua attrazione e si allontanino definitivamente nello spazio senza ricadere insieme per effetto della gravità.
+- **Energia di legame strutturale**: La soglia di energia meccanica legata alla coesione interna del materiale solido (roccia, ghiaccio o polvere), fondamentale per resistere agli urti nei corpi di piccola scala dove la gravità è trascurabile.
+- **Energia di legame gravitazionale**: L'energia totale necessaria affinché tutti i frammenti di un corpo disgregato superino la mutua attrazione e si allontanino definitivamente nello spazio senza ricadere insieme per effetto della gravità.
 
 #### Softening di Plummer
 Parametro geometrico ($\epsilon$) introdotto nel calcolo del potenziale gravitazionale di N-corpi per evitare singolarità numeriche e forze infinite in caso di collisioni o passaggi ravvicinati tra particelle, smussando l'andamento del campo a cortissima distanza.
 
 #### QuadTree e OctTree
 Strutture dati geometriche gerarchiche utilizzate negli algoritmi di N-corpi (come Barnes-Hut) per suddiscere lo spazio ricorsivamente in regioni circoscritte:
-    - **QuadTree**: Struttura bidimensionale in cui ogni nodo dello spazio viene suddiviso in 4 quadranti (quadtree), impiegata per indicizzare e approssimare la distribuzione delle particelle in piani cartesiani.
-    - **OctTree**: Estensione tridimensionale in cui lo spazio viene suddiviso in 8 ottanti, utilizzata per simulazioni volumetriche complete (sebbene il piano di lavoro principale di Stardust si sviluppi su coordinate planari, l'albero gerarchico modella la suddivisione spaziale dei nodi).
+- **QuadTree**: Struttura bidimensionale in cui ogni nodo dello spazio viene suddiviso in 4 quadranti (quadtree), impiegata per indicizzare e approssimare la distribuzione delle particelle in piani cartesiani.
+- **OctTree**: Estensione tridimensionale in cui lo spazio viene suddiviso in 8 ottanti, utilizzata per simulazioni volumetriche complete (sebbene il piano di lavoro principale di Stardust si sviluppi su coordinate planari, l'albero gerarchico modella la suddivisione spaziale dei nodi).
 
 #### Algoritmo Euler-Cromer (Eulero Semi-Implicito)
 Algoritmo di integrazione numerica del primo ordine per equazioni differenziali ordinarie (ODE), impiegato nella simulazione per aggiornare posizioni e velocità. A differenza del metodo di Eulero esplicito, calcola prima la velocità aggiornata e utilizza immediatamente quest'ultima per calcolare la nuova posizione.
@@ -98,6 +98,22 @@ Questo motore di simulazione si colloca nella Fase 4. L'architettura non risolve
 
 >Il motore include anche un modello di interazione coulombiana (disattivato di default, poiché ininfluente alle masse tipiche della Fase 4), predisposto come base per un'eventuale estensione futura verso le fasi di coagulazione della polvere.
 
+## Parametri di Simulazione (`SimulationConfig`)
+Tutti i parametri fisici e numerici della simulazione sono centralizzati come costanti statiche in `SimulationConfig.java`, e vanno modificati (e ricompilati) direttamente lì per sperimentare con scenari diversi. I principali:
+
+* **Corpi e tempo**: `N` (numero di particelle iniziali, default 15000), `DT` (passo di integrazione in secondi, default 3600s = 1 ora).
+* **Disco protoplanetario**: `DISK_INNER_RADIUS` / `DISK_OUTER_RADIUS` (estensione dell'anello iniziale, in AU), `INITIAL_VELOCITY_DISPERSION` (eccita eccentricità/inclinazioni iniziali).
+* **Materia**: `BASE_PARTICLE_MASS_MIN` / `BASE_PARTICLE_MASS_MAX` e `MASS_POWER_LAW_INDEX` (distribuzione a legge di potenza delle masse iniziali), `INITIAL_DUST_DENSITY`.
+* **Collisioni**: `GRAVITATIONAL_CAPTURE_MULTIPLIER` (soglia di fusione rispetto alla velocità di fuga reciproca) e `FRAGMENTATION_MULTIPLIER` (deve restare > 1.0, altrimenti la zona di rimbalzo scompare).
+* **Forze**: `ACTIVE_GRAVITY_MODEL` (`NEWTONIAN_CLAMPED` o `PLUMMER_SOFTENED`), `SOFTENING` (parametro ε), `ENABLE_ELECTROSTATIC_FORCE` (disattivato di default).
+* **Performance**: `USE_BARNES_HUT` e `BARNES_HUT_THETA` (angolo di apertura: più basso = più preciso ma più lento), `BARNES_HUT_THRESHOLD` (soglia di N sotto la quale si torna al calcolo diretto parallelo).
+* **Savepoint**: `AUTOSAVE_INTERVAL_SECONDS` (0 per disattivare il salvataggio automatico).
+
+Non esiste ancora un file di configurazione esterno o argomenti da linea di comando: cambiare scenario richiede di editare le costanti e rilanciare il build.
+
+## Savepoint: sessioni persistenti e simulazioni "live-editabili"
+Il file `savepoint.txt` (formato testuale, definito da `SAVEPOINT_FILE`) non serve solo a interrompere e riprendere una run lunga tra un riavvio e l'altro: essendo un formato testuale semplice (stato globale in chiave=valore, particelle in CSV — posizione, velocità, massa, carica, densità, raggio iniziale, contatore fusioni), lo stato non è mai legato a una specifica versione compilata del motore. In pratica questo permette di **modificare il codice e ricompilare senza perdere la simulazione in corso**.
+s
 
 ## Avvio Simulazione
 >   mvn clean package  
