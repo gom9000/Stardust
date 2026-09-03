@@ -112,12 +112,15 @@ Tutti i parametri fisici e numerici della simulazione sono centralizzati come co
 Non esiste ancora un file di configurazione esterno o argomenti da linea di comando: cambiare scenario richiede di editare le costanti e rilanciare il build.
 
 ## Savepoint: sessioni persistenti e simulazioni "live-editabili"
-Il file `savepoint.txt` (formato testuale, definito da `SAVEPOINT_FILE`) non serve solo a interrompere e riprendere una run lunga tra un riavvio e l'altro: essendo un formato testuale semplice (stato globale in chiave=valore, particelle in CSV — posizione, velocità, massa, carica, densità, raggio iniziale, contatore fusioni), lo stato non è mai legato a una specifica versione compilata del motore. In pratica questo permette di **modificare il codice e ricompilare senza perdere la simulazione in corso**.
-s
+Il file `savepoint.txt` (formato testuale, definito da `SAVEPOINT_FILE`) non serve solo a interrompere e riprendere una run lunga tra un riavvio e l'altro: essendo un formato testuale semplice (stato globale in chiave=valore, particelle in CSV con: posizione, velocità, massa, carica, densità, raggio iniziale, contatore fusioni), lo stato non è mai legato a una specifica versione compilata del motore. In pratica questo permette di **modificare il codice e ricompilare senza perdere la simulazione in corso**.
+
 
 ## Avvio Simulazione
->   mvn clean package  
->   mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Main"
+```bash
+mvn clean package  
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Main"
+```
+
 
 ## About & License
 **Author**: Alessandro Fraschetti (gom9000).  
