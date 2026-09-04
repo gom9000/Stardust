@@ -59,7 +59,7 @@ public final class SimulationConfig
     public static final int FPS = 15;
     public static final int TOP_ORBITS_COUNT = 3; // Numero di orbite principali da evidenziare per massa del corpo
     public static final double GAP_MIN_CLEARING_RATIO = 0.7; // Percentuale minima di svuotamento radiale per evidenziare le zone a bassa densità
-    public static final double DENSITY_RING_WIDTH = 0.001 * AU; // Larghezza dell'anello per l'analisi della densità (metri)
+    public static final double DENSITY_RING_WIDTH = 0.005 * AU; // Larghezza dell'anello per l'analisi della densità (metri)
 
     // Logging
     public static final boolean LOG_ACCRETION_EVENTS = true;
@@ -74,5 +74,5 @@ public final class SimulationConfig
     public static final boolean USE_PARALLEL_FORCES = Runtime.getRuntime().availableProcessors() > 1;
     public static final boolean USE_BARNES_HUT = true;  // approssima gravita'+Coulomb in O(N log N) invece di O(N^2)
     public static final double BARNES_HUT_THETA = 0.7;  // angolo di apertura: piu' basso = piu' preciso ma piu' lento
-    public static final int BARNES_HUT_THRESHOLD = 2000; // al di sotto torna al calcolo parallelo
+    public static final int BARNES_HUT_THRESHOLD = 1300; // al di sotto torna al calcolo parallelo
 }

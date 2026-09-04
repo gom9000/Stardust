@@ -58,7 +58,7 @@ implements ActionListener
 
         // Salvataggio Screenshot della simulazione
         long currentStep = engine.getStepCount();
-        if (currentStep == 0 || (currentStep > 0 && currentStep % 10000 == 0 && currentStep != lastScreenshotStep)) {
+        if (currentStep == 0 || (currentStep > 0 && currentStep % 15000 == 0 && currentStep != lastScreenshotStep)) {
             lastScreenshotStep = currentStep;
             File file = new File(new File("screenshots"), String.format("screenshot_%s_t%09d.png", SimulationConfig.SESSION_ID, (long) engine.getSimulationTime()));
             panel.saveScreenshot(file);

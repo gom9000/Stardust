@@ -31,17 +31,14 @@ public class SimulationPanel extends JPanel {
 
     private static final long serialVersionUID = 1L;
 
-    // Riferimento opzionale al motore per propagare lo stato di pausa (se gestito a livello engine)
     private SimulationEngine simulationEngine;
 
-    // Raggio di riferimento fisso per una particella di massa base (minima)
     private static final double MIN_PARTICLE_RADIUS = Math.cbrt((3.0 * SimulationConfig.BASE_PARTICLE_MASS_MIN)
             / (4.0 * Math.PI * SimulationConfig.INITIAL_DUST_DENSITY));
 
     private double simulatedTimeSeconds = 0.0;
     private double currentDtSeconds = 0.0;
 
-    // Array di stato per il rendering
     private int[] renderId = new int[0];
     private float[] renderX = new float[0];
     private float[] renderY = new float[0];
@@ -52,18 +49,14 @@ public class SimulationPanel extends JPanel {
     private boolean[] renderIsMerged = new boolean[0];
     private int particleCount = 0;
 
-    // ID univoco della particella selezionata tramite mouse (-1 = nessuna)
     private int selectedParticleId = -1;
-    // Flag per il lock della telecamera sulla particella selezionata
     private boolean isCameraLocked = false;
+    private boolean isCoRotatingViewActive = false;
 
-    // ID della singola particella su cui è attiva la visualizzazione del solco mirato (-1 = nessuna)
     private int activeGapParticleId = -1;
 
-    // --- STATO DI PAUSA ---
     private boolean isPaused = false;
 
-    // Gestione Zoom & Pan
     private double zoomFactor = 1.0;
     private double panX = 0.0;
     private double panY = 0.0;
@@ -81,7 +74,6 @@ public class SimulationPanel extends JPanel {
         this.setBackground(Color.BLACK);
         this.setFocusable(true);
 
-        // --- INTERAZIONI TASTIERA: PAUSA ('P'), SOLCO ('G') ---
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -94,7 +86,6 @@ public class SimulationPanel extends JPanel {
             }
         });
 
-        // --- INTERAZIONI MOUSE: CLICK SELEZIONE & PANNING ---
         MouseAdapter mouseHandler = new MouseAdapter() {
             private Point lastPt;
 
@@ -104,7 +95,7 @@ public class SimulationPanel extends JPanel {
                     if (e.getClickCount() == 2) {
                         resetView();
                     } else {
-                        handleMouseClick(e.getX(), e.getY(), e.isControlDown());
+                        handleMouseClick(e.getX(), e.getY(), e.isControlDown(), e.isShiftDown());
                     }
                 }
             }
@@ -114,6 +105,7 @@ public class SimulationPanel extends JPanel {
                 if (SwingUtilities.isRightMouseButton(e) || SwingUtilities.isMiddleMouseButton(e)) {
                     lastPt = e.getPoint();
                     isCameraLocked = false;
+                    isCoRotatingViewActive = false;
                 }
             }
 
@@ -136,13 +128,12 @@ public class SimulationPanel extends JPanel {
         this.addMouseListener(mouseHandler);
         this.addMouseMotionListener(mouseHandler);
 
-        // --- INTERAZIONE MOUSE: ZOOM ---
         this.addMouseWheelListener(e -> {
             double zoomMultiplier = (e.getWheelRotation() < 0) ? ZOOM_SENSITIVITY : (1.0 / ZOOM_SENSITIVITY);
             double newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomFactor * zoomMultiplier));
             double actualFactor = newZoom / zoomFactor;
 
-            if (!isCameraLocked) {
+            if (!isCameraLocked && !isCoRotatingViewActive) {
                 Point mousePt = e.getPoint();
                 int panelCenterX = getWidth() / 2;
                 int panelCenterY = getHeight() / 2;
@@ -172,14 +163,12 @@ public class SimulationPanel extends JPanel {
         repaint();
     }
 
-    /**
-     * Ripristina la vista di default (zoom, posizione, sblocco telecamera e reset solchi).
-     */
     public void resetView() {
         this.zoomFactor = 1.0;
         this.panX = 0.0;
         this.panY = 0.0;
         this.isCameraLocked = false;
+        this.isCoRotatingViewActive = false;
         this.selectedParticleId = -1;
         this.activeGapParticleId = -1;
         repaint();
@@ -188,15 +177,15 @@ public class SimulationPanel extends JPanel {
     private synchronized void toggleGapForSelectedParticle() {
         if (selectedParticleId != -1) {
             if (activeGapParticleId == selectedParticleId) {
-                activeGapParticleId = -1; // Disattiva se era già attivo su questo corpo
+                activeGapParticleId = -1;
             } else {
-                activeGapParticleId = selectedParticleId; // Attiva in esclusiva su questo corpo
+                activeGapParticleId = selectedParticleId;
             }
             repaint();
         }
     }
 
-    private void handleMouseClick(int mouseX, int mouseY, boolean isCtrlPressed) {
+    private void handleMouseClick(int mouseX, int mouseY, boolean isCtrlPressed, boolean isShiftPressed) {
         this.requestFocusInWindow();
         synchronized (this) {
             if (particleCount == 0) return;
@@ -235,13 +224,22 @@ public class SimulationPanel extends JPanel {
             }
 
             if (closestIdx == -1) {
-                // Click a vuoto: deseleziona tutto e rimuove la fascia verde
                 selectedParticleId = -1;
                 activeGapParticleId = -1;
                 isCameraLocked = false;
+                isCoRotatingViewActive = false;
             } else {
                 int clickedId = renderId[closestIdx];
-                if (isCtrlPressed) {
+                if (isCtrlPressed && isShiftPressed) {
+                    if (selectedParticleId == clickedId) {
+                        isCoRotatingViewActive = !isCoRotatingViewActive;
+                    } else {
+                        selectedParticleId = clickedId;
+                        isCameraLocked = true;
+                        isCoRotatingViewActive = true;
+                    }
+                } else if (isCtrlPressed) {
+                    isCoRotatingViewActive = false;
                     if (selectedParticleId == clickedId) {
                         isCameraLocked = !isCameraLocked;
                     } else {
@@ -249,7 +247,9 @@ public class SimulationPanel extends JPanel {
                         isCameraLocked = true;
                     }
                 } else {
+                    isCoRotatingViewActive = false;
                     selectedParticleId = clickedId;
+                    isCameraLocked = false;
                 }
             }
         }
@@ -333,6 +333,7 @@ public class SimulationPanel extends JPanel {
             }
             if (selectedIdx == -1) {
                 isCameraLocked = false;
+                isCoRotatingViewActive = false;
                 selectedParticleId = -1;
                 activeGapParticleId = -1;
             }
@@ -343,78 +344,99 @@ public class SimulationPanel extends JPanel {
         double baseScale = maxWindowRadius / maxExpectedRadius;
         double scale = baseScale * zoomFactor;
 
-        // Inseguimento della camera se attiva
-        if (isCameraLocked && selectedIdx != -1) {
-            panX = -x[selectedIdx] * scale;
-            panY = -y[selectedIdx] * scale;
+        AffineTransform worldTransform = new AffineTransform();
+        double panelCenterX = getWidth() / 2.0;
+        double panelCenterY = getHeight() / 2.0;
+
+        if (selectedIdx != -1) {
+            if (isCoRotatingViewActive) {
+                double px = x[selectedIdx];
+                double py = y[selectedIdx];
+                double pvx = vx[selectedIdx];
+                double pvy = vy[selectedIdx];
+                
+                double velAngle = Math.atan2(pvy, pvx);
+
+                worldTransform.translate(panelCenterX, panelCenterY);
+                worldTransform.scale(scale, scale);
+                worldTransform.rotate(-velAngle);
+                worldTransform.translate(-px, -py);
+
+                panX = -px * scale;
+                panY = -py * scale;
+            } else if (isCameraLocked) {
+                panX = -x[selectedIdx] * scale;
+                panY = -y[selectedIdx] * scale;
+                worldTransform.translate(panelCenterX + panX, panelCenterY + panY);
+                worldTransform.scale(scale, scale);
+            } else {
+                worldTransform.translate(panelCenterX + panX, panelCenterY + panY);
+                worldTransform.scale(scale, scale);
+            }
+        } else {
+            isCoRotatingViewActive = false;
+            worldTransform.translate(panelCenterX + panX, panelCenterY + panY);
+            worldTransform.scale(scale, scale);
         }
 
-        int centerX = (int) (getWidth() / 2.0 + panX);
-        int centerY = (int) (getHeight() / 2.0 + panY);
+        Graphics2D g2World = (Graphics2D) g2.create();
+        g2World.setTransform(worldTransform);
 
-        // 1. Stella Centrale
-        g2.setColor(new Color(255, 180, 50));
-        int starRadiusPx = (int) Math.max(4.0, 6.0 * Math.sqrt(zoomFactor));
-        g2.fillOval(centerX - starRadiusPx, centerY - starRadiusPx, starRadiusPx * 2, starRadiusPx * 2);
+        // 1. Stella Centrale (disegnata nel mondo)
+        g2World.setColor(new Color(255, 180, 50));
+        double starRadiusWorld = Math.max(4.0 / scale, 6.0 * Math.sqrt(zoomFactor) / scale);
+        g2World.fill(new Ellipse2D.Double(-starRadiusWorld, -starRadiusWorld, starRadiusWorld * 2, starRadiusWorld * 2));
 
-        // 1b. Gap radiali agnostici
-        drawLowDensityRadialGaps(g2, x, y, count, scale, centerX, centerY);
+        // 1b. Gap radiali agnostici e mirati
+        drawLowDensityRadialGaps(g2World, x, y, count, scale);
 
-        // 1d. Fascia di clearing mirata (se attiva)
         if (activeGapParticleId != -1) {
             int gapIdx = -1;
             for (int i = 0; i < count; i++) {
                 if (ids[i] == activeGapParticleId) { gapIdx = i; break; }
             }
             if (gapIdx != -1 && mass[gapIdx] > 0) {
-                drawSinglePlanetaryClearingZone(g2, x, y, count, x[gapIdx], y[gapIdx], vx[gapIdx], vy[gapIdx], mass[gapIdx], scale, centerX, centerY);
+                drawSinglePlanetaryClearingZone(g2World, x, y, count, x[gapIdx], y[gapIdx], vx[gapIdx], vy[gapIdx], mass[gapIdx]);
             } else {
                 activeGapParticleId = -1;
             }
         }
 
-        // 2. Top N corpi
+        // 2. Top N corpi e orbite
         int[] topIndices = findTopMassiveIndices(mass, count, SimulationConfig.TOP_ORBITS_COUNT);
-
-        // 3. Orbite
         double mu = SimulationConfig.G * SimulationConfig.STAR_MASS;
         Color defaultOrbitColor = new Color(255, 255, 255, 70);
-        BasicStroke defaultStroke = new BasicStroke(1.0f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
-                                                10.0f, new float[]{5.0f, 5.0f}, 0.0f);
+        BasicStroke defaultStroke = new BasicStroke((float)(1.0 / scale), BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
+                                                10.0f, new float[]{5.0f / (float)scale, 5.0f / (float)scale}, 0.0f);
 
         for (int idx : topIndices) {
             if (idx != -1 && mass[idx] > 0) {
-                drawKeplerianOrbit(g2, x[idx], y[idx], vx[idx], vy[idx], mu, scale, centerX, centerY, defaultOrbitColor, defaultStroke);
+                drawKeplerianOrbit(g2World, x[idx], y[idx], vx[idx], vy[idx], mu, defaultOrbitColor, defaultStroke);
 
-                int px = centerX + (int) (x[idx] * scale);
-                int py = centerY + (int) (y[idx] * scale);
-                int crosshairSize = (int) Math.max(12, 12 * Math.sqrt(zoomFactor));
-                g2.setColor(new Color(255, 255, 255, 200));
-                g2.drawOval(px - crosshairSize / 2, py - crosshairSize / 2, crosshairSize, crosshairSize);
+                double crosshairSize = Math.max(12.0 / scale, (12 * Math.sqrt(zoomFactor)) / scale);
+                g2World.setColor(new Color(255, 255, 255, 200));
+                g2World.setStroke(new BasicStroke((float)(1.0 / scale)));
+                g2World.draw(new Ellipse2D.Double(x[idx] - crosshairSize / 2, y[idx] - crosshairSize / 2, crosshairSize, crosshairSize));
             }
         }
 
         if (selectedIdx != -1) {
             Color selectedOrbitColor = new Color(255, 215, 0, 220);
-            BasicStroke selectedStroke = new BasicStroke(1.5f);
-            drawKeplerianOrbit(g2, x[selectedIdx], y[selectedIdx], vx[selectedIdx], vy[selectedIdx], mu, scale, centerX, centerY, selectedOrbitColor, selectedStroke);
+            BasicStroke selectedStroke = new BasicStroke((float)(1.5 / scale));
+            drawKeplerianOrbit(g2World, x[selectedIdx], y[selectedIdx], vx[selectedIdx], vy[selectedIdx], mu, selectedOrbitColor, selectedStroke);
         }
 
-        // 4. Disegno particelle
+        // 4. Disegno particelle nel mondo
         for (int i = 0; i < count; i++) {
-            int px = centerX + (int) (x[i] * scale);
-            int py = centerY + (int) (y[i] * scale);
-
-            if (px < 0 || px >= getWidth() || py < 0 || py >= getHeight()) {
-                continue;
-            }
-
+            double rx = x[i];
+            double ry = y[i];
             double r = radius[i];
 
             if (merged[i]) {
                 double radiusRatio = Math.max(1.0, r / MIN_PARTICLE_RADIUS);
-                int sizePx = (int) Math.min(24, (3 + Math.log(radiusRatio) * 2.0) * Math.sqrt(zoomFactor));
+                double sizePx = Math.min(24, (3 + Math.log(radiusRatio) * 2.0) * Math.sqrt(zoomFactor));
                 sizePx = Math.max(3, sizePx);
+                double sizeWorld = sizePx / scale;
 
                 double logRatio = 3.0 * Math.log10(radiusRatio);
                 double maxLog = 3.5;
@@ -425,13 +447,14 @@ public class SimulationPanel extends JPanel {
                 float blue  = 0.15f + (0.35f * factor);
                 float alpha = 0.50f + (0.45f * factor);
 
-                g2.setColor(new Color(red, green, blue, alpha));
-                g2.fillOval(px - sizePx / 2, py - sizePx / 2, sizePx, sizePx);
+                g2World.setColor(new Color(red, green, blue, alpha));
+                g2World.fill(new Ellipse2D.Double(rx - sizeWorld / 2, ry - sizeWorld / 2, sizeWorld, sizeWorld));
 
             } else {
                 double radiusRatio = Math.max(1.0, r / MIN_PARTICLE_RADIUS);
-                int sizePx = (int) Math.min(16, (1.5 + Math.log(radiusRatio) * 1.5) * Math.sqrt(zoomFactor));
+                double sizePx = Math.min(16, (1.5 + Math.log(radiusRatio) * 1.5) * Math.sqrt(zoomFactor));
                 sizePx = Math.max(1, sizePx);
+                double sizeWorld = sizePx / scale;
 
                 double logRatio = 2.5 * Math.log10(radiusRatio);
                 double maxLog = 3.5;
@@ -442,37 +465,39 @@ public class SimulationPanel extends JPanel {
                 float blue  = 0.85f + (0.15f * factor);
                 float alpha = 0.30f + (0.50f * factor);
 
-                g2.setColor(new Color(red, green, blue, alpha));
+                g2World.setColor(new Color(red, green, blue, alpha));
 
                 if (sizePx <= 1) {
-                    g2.fillRect(px, py, 1, 1);
+                    g2World.fill(new Ellipse2D.Double(rx, ry, 1.0 / scale, 1.0 / scale));
                 } else {
-                    g2.fillOval(px - sizePx / 2, py - sizePx / 2, sizePx, sizePx);
+                    g2World.fill(new Ellipse2D.Double(rx - sizeWorld / 2, ry - sizeWorld / 2, sizeWorld, sizeWorld));
                 }
             }
 
-            // Mirino HUD
             if (i == selectedIdx) {
-                g2.setColor(Color.YELLOW);
-                g2.setStroke(new BasicStroke(1.2f));
-                int rPx = (int) Math.max(8, 10 * Math.sqrt(zoomFactor));
+                g2World.setColor(Color.YELLOW);
+                g2World.setStroke(new BasicStroke((float)(1.2 / scale)));
+                double rPx = Math.max(8, 10 * Math.sqrt(zoomFactor));
+                double rWorld = rPx / scale;
 
-                g2.drawOval(px - rPx, py - rPx, rPx * 2, rPx * 2);
+                g2World.draw(new Ellipse2D.Double(rx - rWorld, ry - rWorld, rWorld * 2, rWorld * 2));
 
-                int len = 4;
-                g2.drawLine(px - rPx - len, py, px - rPx + 2, py);
-                g2.drawLine(px + rPx - 2, py, px + rPx + len, py);
-                g2.drawLine(px, py - rPx - len, px, py - rPx + 2);
-                g2.drawLine(px, py + rPx - 2, px, py + rPx + len);
+                double lenWorld = 4.0 / scale;
+                g2World.draw(new java.awt.geom.Line2D.Double(rx - rWorld - lenWorld, ry, rx - rWorld + (2.0 / scale), ry));
+                g2World.draw(new java.awt.geom.Line2D.Double(rx + rWorld - (2.0 / scale), ry, rx + rWorld + lenWorld, ry));
+                g2World.draw(new java.awt.geom.Line2D.Double(rx, ry - rWorld - lenWorld, rx, ry - rWorld + (2.0 / scale)));
+                g2World.draw(new java.awt.geom.Line2D.Double(rx, ry + rWorld - (2.0 / scale), rx, ry + rWorld + lenWorld));
             }
         }
 
-        // 5. HUD Selezione e Tempo
+        g2World.dispose();
+
+        // 5. HUD Selezione e Tempo (su schermo, invariati)
         if (selectedIdx != -1) {
             boolean hasGapActive = (activeGapParticleId == ids[selectedIdx]);
             drawSelectionHUD(g2, ids[selectedIdx], x[selectedIdx], y[selectedIdx],
                              vx[selectedIdx], vy[selectedIdx],
-                             mass[selectedIdx], radius[selectedIdx], merged[selectedIdx], hasGapActive);
+                             mass[selectedIdx], radius[selectedIdx], merged[selectedIdx], hasGapActive, isCoRotatingViewActive);
         }
 
         drawTimeHUD(g2, simulatedTimeSeconds, currentDtSeconds);
@@ -506,11 +531,11 @@ public class SimulationPanel extends JPanel {
     }
 
     private void drawSelectionHUD(Graphics2D g2, int id, float rx, float ry,
-                                  float vx, float vy, double m, float r, boolean isMerged, boolean hasGapActive) {
+                                  float vx, float vy, double m, float r, boolean isMerged, boolean hasGapActive, boolean isCoRotating) {
         int hudX = 15;
         int hudY = 15;
         int hudWidth = 220;
-        int hudHeight = 130;
+        int hudHeight = 145;
 
         g2.setColor(new Color(10, 15, 30, 200));
         g2.fillRoundRect(hudX, hudY, hudWidth, hudHeight, 10, 10);
@@ -528,7 +553,7 @@ public class SimulationPanel extends JPanel {
         double radiusKm = r / 1000.0;
 
         g2.setColor(Color.YELLOW);
-        String lockStatus = isCameraLocked ? " [LOCKED]" : "";
+        String lockStatus = isCoRotating ? " [CO-ROT]" : (isCameraLocked ? " [LOCKED]" : "");
         g2.drawString(String.format("CORPO ID #%d (%s)%s", id, isMerged ? "Accresciuto" : "Base", lockStatus), textX, textY);
 
         g2.setColor(Color.WHITE);
@@ -563,9 +588,8 @@ public class SimulationPanel extends JPanel {
         return top;
     }
 
-    private void drawKeplerianOrbit(Graphics2D g2, double rx, double ry, double vx, double vy,
-                                    double mu, double scale, int centerX, int centerY,
-                                    Color orbitColor, BasicStroke stroke) {
+    private void drawKeplerianOrbit(Graphics2D g2World, double rx, double ry, double vx, double vy,
+                                    double mu, Color orbitColor, BasicStroke stroke) {
         double rMag = Math.hypot(rx, ry);
         double vMag = Math.hypot(vx, vy);
         if (rMag == 0 || vMag == 0) return;
@@ -590,26 +614,20 @@ public class SimulationPanel extends JPanel {
         double cxWorld = -c * Math.cos(omega);
         double cyWorld = -c * Math.sin(omega);
 
-        double aPx = a * scale;
-        double bPx = b * scale;
-        double cxPx = centerX + (cxWorld * scale);
-        double cyPx = centerY + (cyWorld * scale);
+        AffineTransform oldTransform = g2World.getTransform();
 
-        AffineTransform oldTransform = g2.getTransform();
+        g2World.translate(cxWorld, cyWorld);
+        g2World.rotate(omega);
 
-        g2.translate(cxPx, cyPx);
-        g2.rotate(omega);
+        g2World.setColor(orbitColor);
+        g2World.setStroke(stroke);
 
-        g2.setColor(orbitColor);
-        g2.setStroke(stroke);
+        g2World.draw(new Ellipse2D.Double(-a, -b, 2.0 * a, 2.0 * b));
 
-        g2.draw(new Ellipse2D.Double(-aPx, -bPx, 2.0 * aPx, 2.0 * bPx));
-
-        g2.setTransform(oldTransform);
+        g2World.setTransform(oldTransform);
     }
 
-    private void drawLowDensityRadialGaps(Graphics2D g2, float[] x, float[] y, int count,
-                                          double scale, int centerX, int centerY) {
+    private void drawLowDensityRadialGaps(Graphics2D g2World, float[] x, float[] y, int count, double scale) {
         double maxRadius = SimulationConfig.DISK_OUTER_RADIUS;
         double minRadius = SimulationConfig.DISK_INNER_RADIUS;
         double binWidthWorld = SimulationConfig.DENSITY_RING_WIDTH;
@@ -644,28 +662,22 @@ public class SimulationPanel extends JPanel {
 
             if (binCounts[b] < lowDensityThreshold) {
                 double rOuterWorld = (b + 1) * binWidthWorld;
-
-                double rInnerPx = rInnerWorld * scale;
-                double rOuterPx = rOuterWorld * scale;
-                double thicknessPx = Math.max(2.0, rOuterPx - rInnerPx);
-
-                double avgRadiusPx = (rInnerPx + rOuterPx) / 2.0;
-                int drawDiameter = (int) (avgRadiusPx * 2.0);
+                double avgRadiusWorld = (rInnerWorld + rOuterWorld) / 2.0;
+                double thicknessWorld = Math.max(2.0 / scale, (rOuterWorld - rInnerWorld));
 
                 float depthFactor = (float) (1.0 - (binCounts[b] / lowDensityThreshold));
                 int alpha = (int) (50 + depthFactor * 110);
 
-                g2.setColor(new Color(255, 40, 80, alpha));
-                g2.setStroke(new BasicStroke((float) thicknessPx));
+                g2World.setColor(new Color(255, 40, 80, alpha));
+                g2World.setStroke(new BasicStroke((float) thicknessWorld));
 
-                g2.drawOval(centerX - (drawDiameter / 2), centerY - (drawDiameter / 2), drawDiameter, drawDiameter);
+                g2World.draw(new Ellipse2D.Double(-avgRadiusWorld, -avgRadiusWorld, avgRadiusWorld * 2.0, avgRadiusWorld * 2.0));
             }
         }
     }
 
-    private void drawSinglePlanetaryClearingZone(Graphics2D g2, float[] x, float[] y, int count, 
-                                                 double rx, double ry, double vx, double vy, 
-                                                 double mass, double scale, int centerX, int centerY) {
+    private void drawSinglePlanetaryClearingZone(Graphics2D g2World, float[] x, float[] y, int count, 
+                                                 double rx, double ry, double vx, double vy, double mass) {
         double mu = SimulationConfig.G * SimulationConfig.STAR_MASS;
         double rMag = Math.hypot(rx, ry);
         if (rMag == 0) return;
@@ -702,16 +714,13 @@ public class SimulationPanel extends JPanel {
             clearingDepth = Math.max(0.0, 1.0 - (particlesInAnnulus / expectedDensity));
         }
 
-        double rInnerPx = rInnerWorld * scale;
-        double rOuterPx = rOuterWorld * scale;
-        double thicknessPx = Math.max(2.0, rOuterPx - rInnerPx);
-        double avgRadiusPx = (rInnerPx + rOuterPx) / 2.0;
-        int drawDiameter = (int) (avgRadiusPx * 2.0);
+        double avgRadiusWorld = (rInnerWorld + rOuterWorld) / 2.0;
+        double thicknessWorld = Math.max(2.0, rOuterWorld - rInnerWorld);
 
         int alpha = (int) (30 + clearingDepth * 150);
-        g2.setColor(new Color(0, 255, 180, Math.min(255, Math.max(20, alpha))));
-        g2.setStroke(new BasicStroke((float) thicknessPx));
-        g2.drawOval(centerX - (drawDiameter / 2), centerY - (drawDiameter / 2), drawDiameter, drawDiameter);
+        g2World.setColor(new Color(0, 255, 180, Math.min(255, Math.max(20, alpha))));
+        g2World.setStroke(new BasicStroke((float) thicknessWorld));
+        g2World.draw(new Ellipse2D.Double(-avgRadiusWorld, -avgRadiusWorld, avgRadiusWorld * 2.0, avgRadiusWorld * 2.0));
     }
 
     private void drawTimeHUD(Graphics2D g2, double totalSimulatedSeconds, double currentDt) {
@@ -727,7 +736,7 @@ public class SimulationPanel extends JPanel {
         g2.setStroke(new BasicStroke(1.0f));
         g2.drawRoundRect(hudX, hudY, hudWidth, hudHeight, 10, 10);
 
-        double days = totalSimulatedSeconds / (24.0 * 3600.0);
+        double days = totalSimulatedSeconds / (24.0 * 3600.0);	
         double years = days / 365.25;
 
         g2.setColor(Color.WHITE);
