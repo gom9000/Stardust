@@ -42,7 +42,7 @@ I corpi hanno masse sufficienti perché la mutua gravità domini su ogni altra i
 * **Come lo modello:** 
   * **Accrescimento / Cannibalismo:** Se la velocità relativa è inferiore alla velocità di fuga combinata, i corpi si fondono conservando la massa totale e ricalcolando il raggio equivalente (assumendo densità costante).
   * **Rimbalzo:** Se l'urto è anelastico ma sotto la soglia di rottura, viene applicato un coefficiente di restituzione per calcolare le velocità post-impatto.
-  * **Frammentazione:** Se l'energia cinetica supera la soglia critica, il corpo maggiore viene disgregato in un numero controllato di frammenti minori, distribuendo la massa residua e preservando rigorosamente la quantità di moto totale.
+  * **Frammentazione:** Se l'energia cinetica supera la soglia critica, il corpo maggiore viene disgregato in un numero controllato di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
 
 ### 4. Forze Elettrostatiche (Interazione Coulombiana)
 * **Il fenomeno:** Dominanti nella Fase 1 sui grani microscopici di polvere, dove la carica elettrica accumulata (per fotoionizzazione o collisioni) genera attrazione o repulsione elettrostatica a corto raggio.
