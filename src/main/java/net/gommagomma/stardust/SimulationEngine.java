@@ -35,6 +35,9 @@ public class SimulationEngine {
     private double simulationTime = 0; // secondi simulati trascorsi
     private long stepCount = 0;
 
+    private final AtomicLong maxCourantHitCount = new AtomicLong(0); // o un double atomico/volatile per il max
+    private volatile double maxCourantObserved = 0.0;
+    
     private CollisionGrid collisionGrid;
 
     private volatile boolean paused = false;
@@ -302,6 +305,26 @@ public class SimulationEngine {
                  // Valutazione esito collisione a tre vie
                  // Forza la fusione se la velocità relativa è troppo bassa per sostenere un rimbalzo stabile
                 double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
+                
+                // calcola il Numero di Courant
+                double sumRadii = p1.getRadius() + p2.getRadius();
+                
+                if (sumRadii > 0) {
+                    double courantNumber = (relSpeed * SimulationConfig.DT) / sumRadii;
+                    
+                    synchronized (this) {
+                        if (courantNumber > maxCourantObserved) {
+                            maxCourantObserved = courantNumber;
+                        }
+                    }
+                    
+                    if (courantNumber > 0.5 && SimulationConfig.LOG_BOUNCE_EVENTS) {
+                        System.out.printf("[ATTENZIONE] Numero di Courant elevato: C=%.2f (v_rel=%.1f m/s, DT=%.1fs, r_sum=%.1em)%n",
+                            courantNumber, relSpeed, SimulationConfig.DT, sumRadii);
+                    }
+                }
+                //
+                
                 CollisionResult result = (relSpeed <3) ? CollisionResult.MERGE : Physics.evaluateCollision(p1, p2);
                 switch (result) {
                     case MERGE:
@@ -411,6 +434,7 @@ public class SimulationEngine {
         double totalMass = 0;
         double maxMass = 0;
         double maxRadius = 0;
+        double totalStarPotentialEnergy = 0;
         double totalPotentialEnergy = 0;
         double totalKineticEnergy = 0;
         long aliveCount = 0;
@@ -419,6 +443,8 @@ public class SimulationEngine {
             if (p.isAlive()) {
                 aliveCount++;
                 totalPotentialEnergy += p.getPotentialEnergy();
+                totalStarPotentialEnergy += Physics.calculateCentralStarPotentialEnergy(p);
+
                 
                 // Calcolo energia cinetica: 0.5 * m * v^2
                 // v^2 è la norma al quadrato del vettore velocità (vx*vx + vy*vy + vz*vz)
@@ -435,13 +461,15 @@ public class SimulationEngine {
         }
 
         // Dividiamo per 2 il potenziale per evitare il doppio conteggio delle coppie
-        double totalMechanicalEnergy = totalKineticEnergy + totalPotentialEnergy / 2.0;
+        double totalMechanicalEnergy = totalKineticEnergy + totalPotentialEnergy / 2.0 + totalStarPotentialEnergy;
 
         System.out.printf(
-                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
+                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant Max: %.2f | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
                 simulationTime, totalMechanicalEnergy,
-                aliveCount, totalMass, maxMass, maxRadius, 
+                aliveCount, maxCourantObserved, totalMass, maxMass, maxRadius, 
                 totalMerges.get(), totalBounces.get(), totalFragmentations.get(), totalStarFalls.get(), totalEscapes.get(), 
                 forceMs, integrationMs, collisionMs);
+        
+        //maxCourantObserved = 0.0;
     }
 }

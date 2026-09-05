@@ -44,6 +44,16 @@ public class Physics
     }
 
     /**
+     * Energia potenziale gravitazionale tra la particella e la stella centrale.
+     * Termine a un corpo (non va diviso per 2 come il potenziale mutuo tra particelle).
+     */
+    public static double calculateCentralStarPotentialEnergy(Particle p) {
+        double r = p.getPosition().magnitude();
+        if (r <= 0.0) return 0.0;
+        return -(SimulationConfig.G * SimulationConfig.STAR_MASS * p.getMass()) / r;
+    }
+    
+    /**
      * Forza elettrostatica esercitata da p2 su p1 (repulsiva se cariche concordi).
      */
     public static Vector3D calculateCoulomb(Particle p1, Particle p2) {
@@ -197,44 +207,51 @@ public class Physics
         return distance <= (combinedCaptureRadius + sweptBuffer);
     }
 
+    
+    // Controllo di collisione continua (CCD) sul segmento REALMENTE percorso
+    // in questo step: da previousPosition (inizio step) a position (fine step),
+    // a velocità costante (coerente con l'integrazione Euler-Cromer).
+    // Usare p.getPosition() come punto di partenza, come in precedenza,
+    // controllava un ipotetico step FUTURO invece di verificare quello appena
+    // avvenuto: un corpo che tunnela e si allontana veniva perso perché a
+    // fine step la distanza attuale risultava già superiore alla soglia.
     public static boolean checkCollision(Particle p1, Particle p2) {
-        // controllo di collisione continua (CCD)
-        Vector3D x1_start = p1.getPosition();
-        Vector3D x2_start = p2.getPosition();
-        
+        Vector3D x1_start = p1.getPreviousPosition();
+        Vector3D x2_start = p2.getPreviousPosition();
+
         Vector3D v1 = p1.getVelocity();
         Vector3D v2 = p2.getVelocity();
-        
+
         double dt = SimulationConfig.DT;
-        
+
         // Vettore posizione relativa iniziale e velocità relativa
         Vector3D r0 = x1_start.subtract(x2_start);
         Vector3D vRel = v1.subtract(v2);
-        
+
         double a = vRel.magnitudeSquared();
         double combinedCaptureRadius = getEffectiveCaptureRadius(p1) + getEffectiveCaptureRadius(p2);
         double thresholdSq = combinedCaptureRadius * combinedCaptureRadius;
-        
+
         // Se la distanza iniziale è già inferiore alla soglia
         if (r0.magnitudeSquared() <= thresholdSq) {
             return true;
         }
-        
+
         if (a == 0.0) {
             return r0.magnitudeSquared() <= thresholdSq;
         }
-        
+
         // Trova il tempo t di massimo avvicinamento (derivata della distanza al quadrato = 0)
         // t = - (r0 · vRel) / |vRel|^2
         double t = -r0.dotProduct(vRel) / a;
-        
-        // Limita il tempo al intervallo del timestep [0, dt]
+
+        // Limita il tempo al intervallo del timestep [0, dt] appena trascorso
         t = Math.max(0.0, Math.min(dt, t));
-        
+
         // Calcola la distanza al quadrato nel momento di massimo avvicinamento t
         Vector3D rMin = r0.add(vRel.multiply(t));
         double minDistSq = rMin.magnitudeSquared();
-        
+
         return minDistSq <= thresholdSq;
     }
     

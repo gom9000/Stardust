@@ -22,6 +22,7 @@ public class Particle
     
     // Proprietà cinematiche (vettori 3D)
     private Vector3D position;
+    private Vector3D previousPosition; // posizione a INIZIO step, prima di update(dt) — usata per la CCD
     private Vector3D velocity;
     private Vector3D force;
     private Vector3D acceleration;
@@ -40,6 +41,7 @@ public class Particle
         this.id = ID_COUNTER.getAndIncrement();
 
         this.position = position;
+        this.previousPosition = position;
         this.velocity = velocity;
         this.force = new Vector3D(0, 0, 0);
         this.acceleration = new Vector3D(0, 0, 0);
@@ -68,6 +70,7 @@ public class Particle
     {
         this.id = id;
         this.position = position;
+        this.previousPosition = position;
         this.velocity = velocity;
         this.mass = mass;
         this.charge = charge;
@@ -127,6 +130,12 @@ public class Particle
     // Avanzamento cinematico (Euler-Cromer)
     public void update(double dt)
     {
+        // Salva la posizione di inizio step: è il punto di partenza reale
+        // del segmento rettilineo che la particella percorrerà in questo dt,
+        // necessario alla CCD in Physics.checkCollision per non "perdere"
+        // il tratto appena percorso.
+        this.previousPosition = this.position;
+
         // a = F / m
         this.acceleration = this.force.divide(this.mass);
         
@@ -149,7 +158,8 @@ public class Particle
     public double getDensity() { return density; }
     public void setDensity(double density) { this.density = density; }
     public Vector3D getPosition() { return position; }
-    public void setPosition(Vector3D position) { this.position = position; }
+    public void setPosition(Vector3D position) { this.position = position; this.previousPosition = position; }
+    public Vector3D getPreviousPosition() { return previousPosition; }
     public Vector3D getVelocity() { return velocity; }
     public void setVelocity(Vector3D velocity) { this.velocity = velocity; }
     public Vector3D getForce() { return force; }
