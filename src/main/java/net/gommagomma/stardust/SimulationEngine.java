@@ -438,7 +438,7 @@ public class SimulationEngine {
         double totalMechanicalEnergy = totalKineticEnergy + totalPotentialEnergy / 2.0;
 
         System.out.printf(
-                "[t=%12.1fs] ENERGIA: %.8e J | STATO: %d particelle | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
+                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
                 simulationTime, totalMechanicalEnergy,
                 aliveCount, totalMass, maxMass, maxRadius, 
                 totalMerges.get(), totalBounces.get(), totalFragmentations.get(), totalStarFalls.get(), totalEscapes.get(), 

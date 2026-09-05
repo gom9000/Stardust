@@ -187,7 +187,7 @@ public class Physics
     /**
      * Determina se due particelle sono abbastanza vicine da collidere nel timestep dt.
      */
-    public static boolean checkCollision(Particle p1, Particle p2) {
+    public static boolean checkCollision2(Particle p1, Particle p2) {
         double distance = p1.getPosition().distanceTo(p2.getPosition());
         double combinedCaptureRadius = getEffectiveCaptureRadius(p1) + getEffectiveCaptureRadius(p2);
         
@@ -197,6 +197,47 @@ public class Physics
         return distance <= (combinedCaptureRadius + sweptBuffer);
     }
 
+    public static boolean checkCollision(Particle p1, Particle p2) {
+        // controllo di collisione continua (CCD)
+        Vector3D x1_start = p1.getPosition();
+        Vector3D x2_start = p2.getPosition();
+        
+        Vector3D v1 = p1.getVelocity();
+        Vector3D v2 = p2.getVelocity();
+        
+        double dt = SimulationConfig.DT;
+        
+        // Vettore posizione relativa iniziale e velocità relativa
+        Vector3D r0 = x1_start.subtract(x2_start);
+        Vector3D vRel = v1.subtract(v2);
+        
+        double a = vRel.magnitudeSquared();
+        double combinedCaptureRadius = getEffectiveCaptureRadius(p1) + getEffectiveCaptureRadius(p2);
+        double thresholdSq = combinedCaptureRadius * combinedCaptureRadius;
+        
+        // Se la distanza iniziale è già inferiore alla soglia
+        if (r0.magnitudeSquared() <= thresholdSq) {
+            return true;
+        }
+        
+        if (a == 0.0) {
+            return r0.magnitudeSquared() <= thresholdSq;
+        }
+        
+        // Trova il tempo t di massimo avvicinamento (derivata della distanza al quadrato = 0)
+        // t = - (r0 · vRel) / |vRel|^2
+        double t = -r0.dotProduct(vRel) / a;
+        
+        // Limita il tempo al intervallo del timestep [0, dt]
+        t = Math.max(0.0, Math.min(dt, t));
+        
+        // Calcola la distanza al quadrato nel momento di massimo avvicinamento t
+        Vector3D rMin = r0.add(vRel.multiply(t));
+        double minDistSq = rMin.magnitudeSquared();
+        
+        return minDistSq <= thresholdSq;
+    }
+    
     /**
      * Valuta l'esito della collisione tra due particelle selezionando tra FUSIONE, RIMBALZO o FRAMMENTAZIONE.
      */

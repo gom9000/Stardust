@@ -20,7 +20,7 @@ public final class SimulationConfig
 
     // Simulation parameters
     public static final int N = 15000;                      // Numero particelle
-    public static final double DT = 3600.0;                   // Step temporale (secondi)
+    public static final double DT = 600.0;                   // Step temporale (secondi)
     public static final double SOFTENING = 1; //500.0;         // Softening parameter (m)
     public static final GravityModel ACTIVE_GRAVITY_MODEL = GravityModel.NEWTONIAN_CLAMPED;
 
@@ -74,5 +74,5 @@ public final class SimulationConfig
     public static final boolean USE_PARALLEL_FORCES = Runtime.getRuntime().availableProcessors() > 1;
     public static final boolean USE_BARNES_HUT = true;  // approssima gravita'+Coulomb in O(N log N) invece di O(N^2)
     public static final double BARNES_HUT_THETA = 0.7;  // angolo di apertura: piu' basso = piu' preciso ma piu' lento
-    public static final int BARNES_HUT_THRESHOLD = 1300; // al di sotto torna al calcolo parallelo
+    public static final int BARNES_HUT_THRESHOLD = 1000; // al di sotto torna al calcolo parallelo
 }
