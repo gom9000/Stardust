@@ -49,7 +49,7 @@ public final class SimulationConfig
 
     // Proprietà della Materia
     public static final double MASS_POWER_LAW_INDEX = 1.2; // distribuzione a potenza delle masse
-    public static final double INITIAL_DUST_DENSITY = 100.0;
+    public static final double INITIAL_DUST_DENSITY = 600.0;
     public static final double BASE_PARTICLE_MASS_MIN = 2e19;
     public static final double BASE_PARTICLE_MASS_MAX = 2e21;
     public static final boolean ENABLE_ELECTROSTATIC_FORCE = false;

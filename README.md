@@ -109,7 +109,7 @@ Tutti i parametri fisici e numerici della simulazione sono centralizzati come co
 * **Performance**: `USE_BARNES_HUT` e `BARNES_HUT_THETA` (angolo di apertura: più basso = più preciso ma più lento), `BARNES_HUT_THRESHOLD` (soglia di N sotto la quale si torna al calcolo diretto parallelo).
 * **Savepoint**: `AUTOSAVE_INTERVAL_SECONDS` (0 per disattivare il salvataggio automatico).
 
-Non esiste ancora un file di configurazione esterno o argomenti da linea di comando: cambiare scenario richiede di editare le costanti e rilanciare il build.
+Non sono previsti file di configurazione esterni o CLI: la definizione dello scenario avviene tramite la modifica delle costanti e la ricompilazione, mentre la continuità della simulazione è garantita dal sistema di Savepoint per il salvataggio e ripristino dello stato.
 
 ## Savepoint: sessioni persistenti e simulazioni "live-editabili"
 Il file `savepoint.txt` (formato testuale, definito da `SAVEPOINT_FILE`) non serve solo a interrompere e riprendere una run lunga tra un riavvio e l'altro: essendo un formato testuale semplice (stato globale in chiave=valore, particelle in CSV con: posizione, velocità, massa, carica, densità, raggio iniziale, contatore fusioni), lo stato non è mai legato a una specifica versione compilata del motore. In pratica questo permette di **modificare il codice o i parametri, e ricompilare senza perdere la simulazione in corso**.
