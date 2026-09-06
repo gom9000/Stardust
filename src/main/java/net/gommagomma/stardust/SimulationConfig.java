@@ -20,7 +20,7 @@ public final class SimulationConfig
 
     // Simulation parameters
     public static final int N = 15000;                      // Numero particelle
-    public static final double DT = 600.0;                   // Step temporale (secondi)
+    public static final double DT = 300.0;                   // Step temporale (secondi)
     public static final double SOFTENING = 1; //500.0;         // Softening parameter (m)
     public static final GravityModel ACTIVE_GRAVITY_MODEL = GravityModel.NEWTONIAN_CLAMPED;
 
@@ -49,7 +49,7 @@ public final class SimulationConfig
 
     // Proprietà della Materia
     public static final double MASS_POWER_LAW_INDEX = 1.2; // distribuzione a potenza delle masse
-    public static final double INITIAL_DUST_DENSITY = 600.0;
+    public static final double INITIAL_DUST_DENSITY = 100.0; // -> 500.0 ???
     public static final double BASE_PARTICLE_MASS_MIN = 2e19;
     public static final double BASE_PARTICLE_MASS_MAX = 2e21;
     public static final boolean ENABLE_ELECTROSTATIC_FORCE = false;
@@ -74,5 +74,5 @@ public final class SimulationConfig
     public static final boolean USE_PARALLEL_FORCES = Runtime.getRuntime().availableProcessors() > 1;
     public static final boolean USE_BARNES_HUT = true;  // approssima gravita'+Coulomb in O(N log N) invece di O(N^2)
     public static final double BARNES_HUT_THETA = 0.7;  // angolo di apertura: piu' basso = piu' preciso ma piu' lento
-    public static final int BARNES_HUT_THRESHOLD = 1000; // al di sotto torna al calcolo parallelo
+    public static final int BARNES_HUT_THRESHOLD = 500; // al di sotto torna al calcolo parallelo
 }
