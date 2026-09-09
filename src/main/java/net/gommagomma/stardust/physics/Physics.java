@@ -128,7 +128,8 @@ public class Physics
         double sigmaH2 = 2.0e-19;
         double meanFreePath = mH2 / (Math.sqrt(2.0) * sigmaH2 * localGasDensity);
 
-        double R = p.getRadius();
+        //double R = p.getRadius();
+        double R = Math.cbrt((3.0 * p.getMass()) / (4.0 * Math.PI * SimulationConfig.DRAG_REFERENCE_DENSITY));
         double forceFactor;
 
         if (R <= (9.0 / 4.0) * meanFreePath) {

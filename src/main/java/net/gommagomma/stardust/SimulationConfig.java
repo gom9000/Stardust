@@ -20,7 +20,7 @@ public final class SimulationConfig
 
     // Simulation parameters
     public static final int N = 15000;                      // Numero particelle
-    public static final double DT = 300.0;                   // Step temporale (secondi)
+    public static final double DT = 450.0;                   // Step temporale (secondi)
     public static final double SOFTENING = 1; //500.0;         // Softening parameter (m)
     public static final GravityModel ACTIVE_GRAVITY_MODEL = GravityModel.NEWTONIAN_CLAMPED;
 
@@ -38,6 +38,7 @@ public final class SimulationConfig
     public static final double GAS_DENSITY_BASE = 1.4e-9;      // Densità gas a 1 AU (kg/m^3)
     public static final double GAS_PROFILE_EXPONENT = -2; // profilo di densità radiale del gas
     public static final double GAS_SUB_KEPLERIAN_FACTOR = 0.95; // Vel. gas rispetto al kepleriano
+    public static final double DRAG_REFERENCE_DENSITY = 3000.0; // roccia/ghiaccio compattato, kg/m^3
     
     // Perturbazione e Accrescimento
     public static final double FRAGMENTATION_MULTIPLIER = 2.0; // Deve restare > 1.0 (altrimenti la zona di rimbalzo sparisce)
@@ -58,13 +59,13 @@ public final class SimulationConfig
     // Rendering
     public static final int FPS = 15;
     public static final int TOP_ORBITS_COUNT = 3; // Numero di orbite principali da evidenziare per massa del corpo
-    public static final double GAP_MIN_CLEARING_RATIO = 0.7; // Percentuale minima di svuotamento radiale per evidenziare le zone a bassa densità
+    public static final double GAP_MIN_CLEARING_RATIO = 0.8; // Percentuale minima di svuotamento radiale per evidenziare le zone a bassa densità
     public static final double DENSITY_RING_WIDTH = 0.005 * AU; // Larghezza dell'anello per l'analisi della densità (metri)
 
     // Logging
     public static final boolean LOG_ACCRETION_EVENTS = true;
     public static final boolean LOG_BOUNCE_EVENTS = true;
-    public static final int LOG_SUMMARY_EVERY_N_STEPS = 500;
+    public static final int LOG_SUMMARY_EVERY_N_STEPS = 5000;
 
     // Savepoint (salva/riprendi la simulazione tra sessioni diverse)
     public static final String SAVEPOINT_FILE = "savepoint.txt";
@@ -73,6 +74,6 @@ public final class SimulationConfig
     // Performance
     public static final boolean USE_PARALLEL_FORCES = Runtime.getRuntime().availableProcessors() > 1;
     public static final boolean USE_BARNES_HUT = true;  // approssima gravita'+Coulomb in O(N log N) invece di O(N^2)
-    public static final double BARNES_HUT_THETA = 0.7;  // angolo di apertura: piu' basso = piu' preciso ma piu' lento
-    public static final int BARNES_HUT_THRESHOLD = 500; // al di sotto torna al calcolo parallelo
+    public static final double BARNES_HUT_THETA = 0.6;  // angolo di apertura: piu' basso = piu' preciso ma piu' lento
+    public static final int BARNES_HUT_THRESHOLD = 400; // al di sotto torna al calcolo parallelo (numero di particelle)
 }
