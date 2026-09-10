@@ -2,7 +2,6 @@ package net.gommagomma.stardust;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -12,18 +11,12 @@ import net.gommagomma.stardust.physics.collision.CollisionGrid;
 import net.gommagomma.stardust.physics.collision.CollisionResult;
 
 public class SimulationEngine {
-
     private final List<Particle> particles;
+    private final SimulationMetrics metrics;
     private volatile boolean running = false;
 
     private static final ThreadLocal<List<Particle>> LOCAL_CANDIDATES = ThreadLocal.withInitial(() -> new ArrayList<>(128));
     private final List<Particle> newFragmentsBuffer = java.util.Collections.synchronizedList(new ArrayList<>());
-
-    private final AtomicLong totalMerges = new AtomicLong(0);
-    private final AtomicLong totalBounces = new AtomicLong(0);
-    private final AtomicLong totalEscapes = new AtomicLong(0);
-    private final AtomicLong totalStarFalls = new AtomicLong(0);
-    private final AtomicLong totalFragmentations = new AtomicLong(0);
 
     private volatile double currentTPS = 0.0;
     private long lastTpsCheckTime = System.nanoTime();
@@ -31,12 +24,6 @@ public class SimulationEngine {
 
     private double[] reach = new double[0];
     private double maxReach = 0.0;
-
-    private double simulationTime = 0; // secondi simulati trascorsi
-    private long stepCount = 0;
-
-    private final AtomicLong maxCourantHitCount = new AtomicLong(0); // o un double atomico/volatile per il max
-    private volatile double maxCourantObserved = 0.0;
     
     private CollisionGrid collisionGrid;
 
@@ -49,31 +36,20 @@ public class SimulationEngine {
     // Costruttore per una nuova simulazione
     public SimulationEngine(List<Particle> particles) {
         this.particles = particles;
+        this.metrics = new SimulationMetrics();
     }
 
- // Costruttore di ripristino da savepoint
-    public SimulationEngine(List<Particle> particles, double simulationTime, long stepCount, long totalMerges, long totalBounces, long totalEscapes, long totalStarFalls, long totalFragmentations)
+    // Costruttore di ripristino da savepoint
+    public SimulationEngine(List<Particle> particles, SimulationMetrics metrics)
     {
         this.particles = particles;
-        this.simulationTime = simulationTime;
-        this.stepCount = stepCount;
-        this.totalMerges.set(totalMerges);
-        this.totalBounces.set(totalBounces);
-        this.totalEscapes.set(totalEscapes);
-        this.totalStarFalls.set(totalStarFalls);
-        this.totalFragmentations.set(totalFragmentations); // <-- Aggiunto!
+        this.metrics = metrics;
     }
 
     public List<Particle> getParticles() { return particles; }
+    public SimulationMetrics getMetrics() { return metrics; }
     public boolean isRunning() { return running; }
     public void stop() { running = false; }
-    public double getSimulationTime() { return simulationTime; }
-    public long getStepCount() { return stepCount; }
-    public long getTotalMerges() { return totalMerges.get(); }
-    public long getTotalBounces() { return totalBounces.get(); }
-    public long getTotalEscapes() { return totalEscapes.get(); }
-    public long getTotalStarFalls() { return totalStarFalls.get(); }
-    public long getTotalFragmentations() { return totalFragmentations.get(); }
     public double getCurrentTPS() { return currentTPS; }
 
     public void run() {
@@ -132,13 +108,13 @@ public class SimulationEngine {
         double forceMs = (t1 - t0) / 1_000_000.0;
         double integrationMs = (t2 - t1) / 1_000_000.0;
         double collisionMs  = (t3 - t2) / 1_000_000.0;
-        if (SimulationConfig.LOG_SUMMARY_EVERY_N_STEPS > 0 && stepCount % SimulationConfig.LOG_SUMMARY_EVERY_N_STEPS == 0) {
+        if (SimulationConfig.LOG_SUMMARY_EVERY_N_STEPS > 0 && metrics.getStepCount() % SimulationConfig.LOG_SUMMARY_EVERY_N_STEPS == 0) {
             printSummary(forceMs, integrationMs, collisionMs);
         }
 
         // Aggiornamento per step successivo
-        simulationTime += SimulationConfig.DT;
-        stepCount++;
+        metrics.addTime(SimulationConfig.DT);
+        metrics.incrementStep();
         updateTpsCounter();
     }
 
@@ -312,11 +288,7 @@ public class SimulationEngine {
                 if (sumRadii > 0) {
                     double courantNumber = (relSpeed * SimulationConfig.DT) / sumRadii;
                     
-                    synchronized (this) {
-                        if (courantNumber > maxCourantObserved) {
-                            maxCourantObserved = courantNumber;
-                        }
-                    }
+                    metrics.updateMaxCourant(courantNumber);
                     
                     if (courantNumber > 0.5 && SimulationConfig.LOG_BOUNCE_EVENTS) {
                         System.out.printf("[ATTENZIONE] Numero di Courant elevato: C=%.2f (v_rel=%.1f m/s, DT=%.1fs, r_sum=%.1em)%n",
@@ -353,28 +325,28 @@ public class SimulationEngine {
 
         Physics.mergeParticles(winner, loser);
 
-        long mergeId = totalMerges.incrementAndGet();
+        long mergeId = metrics.recordMerge();
 
         if (SimulationConfig.LOG_ACCRETION_EVENTS && bothAggregated) {
         	System.out.printf(
         			"[t=%12.1fs] IMPATTO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)%n",
-        			simulationTime, mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
+        			metrics.getSimulationTime(), mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
         			winner.getId(), winner.getMass(), winner.getRadius());
         } else if (wasAggregated) {
         	System.out.printf(
         			"[t=%12.1fs] CANNIBALISMO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)%n",
-        			simulationTime, mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
+        			metrics.getSimulationTime(), mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
         			winner.getId(), winner.getMass(), winner.getRadius());
         } else {
         	System.out.printf(
         			"[t=%12.1fs] ACCRESCIMENTO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)%n",
-        			simulationTime, mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
+        			metrics.getSimulationTime(), mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
         			winner.getId(), winner.getMass(), winner.getRadius());
         }
     }
 
     private void handleFragmentation(Particle p1, Particle p2) {
-        long fragId = totalFragmentations.incrementAndGet();
+        long fragId = metrics.recordFragmentation();
 
         // Genera i frammenti
         List<Particle> fragments = Physics.fragmentParticles(p1, p2);
@@ -385,21 +357,21 @@ public class SimulationEngine {
             double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
             System.out.printf(
                 "[t=%12.1fs] FRAMMENTAZIONE #%d: #%d (m=%.2e kg) + #%d (m=%.2e kg) -> Generati %d frammenti [v_rel=%.1f m/s]%n",
-                simulationTime, fragId, p1.getId(), p1.getMass(), p2.getId(), p2.getMass(), fragments.size(), relSpeed
+                metrics.getSimulationTime(), fragId, p1.getId(), p1.getMass(), p2.getId(), p2.getMass(), fragments.size(), relSpeed
             );
         }
     }
     
     private void handleBounce(Particle p1, Particle p2) {
         Physics.resolveBounce(p1, p2, 0.5);
-        long bounceId = totalBounces.incrementAndGet();
+        long bounceId = metrics.recordBounce();
 
         if (SimulationConfig.LOG_BOUNCE_EVENTS) {
             double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
             double dist = p1.getPosition().distanceTo(p2.getPosition());
             System.out.printf(
                 "[t=%12.1fs] RIMBALZO #%d: #%d <-> #%d [v_rel=%.1f m/s, dist=%.1f m]%n",
-                simulationTime, bounceId, p1.getId(), p2.getId(), relSpeed, dist
+                metrics.getSimulationTime(), bounceId, p1.getId(), p2.getId(), relSpeed, dist
             );
         }
     }
@@ -412,9 +384,9 @@ public class SimulationEngine {
         // CATTURA DA PARTE DELLA STELLA
         if (distFromCenter <= starRadius) {
             p.setAlive(false);
-            totalStarFalls.incrementAndGet();
+            metrics.recordStarFall();
             if (SimulationConfig.LOG_ACCRETION_EVENTS) {
-                System.out.printf("[t=%12.1fs] CADUTA NELLA STELLA: Particella #%d (m=%.2e kg)%n", simulationTime, p.getId(), p.getMass());
+                System.out.printf("[t=%12.1fs] CADUTA NELLA STELLA: Particella #%d (m=%.2e kg)%n", metrics.getSimulationTime(), p.getId(), p.getMass());
             }
         }
         // ESPULSIONE DAL SISTEMA SOLARE
@@ -422,9 +394,9 @@ public class SimulationEngine {
             double vEsc = Math.sqrt((2.0 * SimulationConfig.G * SimulationConfig.STAR_MASS) / distFromCenter);
             if (p.getVelocity().magnitude() > vEsc) {
                 p.setAlive(false);
-                totalEscapes.incrementAndGet();
+                metrics.recordEscape();
                 if (SimulationConfig.LOG_ACCRETION_EVENTS) {
-                    System.out.printf("[t=%12.1fs] FUGA INTERSTELLARE: Particella #%d schizzata via dal sistema!%n", simulationTime, p.getId());
+                    System.out.printf("[t=%12.1fs] FUGA INTERSTELLARE: Particella #%d schizzata via dal sistema!%n", metrics.getSimulationTime(), p.getId());
                 }
             }
         }
@@ -465,11 +437,9 @@ public class SimulationEngine {
 
         System.out.printf(
                 "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant Max: %.2f | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
-                simulationTime, totalMechanicalEnergy,
-                aliveCount, maxCourantObserved, totalMass, maxMass, maxRadius, 
-                totalMerges.get(), totalBounces.get(), totalFragmentations.get(), totalStarFalls.get(), totalEscapes.get(), 
+                metrics.getSimulationTime(), totalMechanicalEnergy,
+                aliveCount, metrics.getMaxCourantObserved(), totalMass, maxMass, maxRadius, 
+                metrics.getTotalMerges(), metrics.getTotalBounces(), metrics.getTotalFragmentations(), metrics.getTotalStarFalls(), metrics.getTotalEscapes(), 
                 forceMs, integrationMs, collisionMs);
-        
-        //maxCourantObserved = 0.0;
     }
 }

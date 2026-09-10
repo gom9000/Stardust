@@ -39,7 +39,7 @@ implements ActionListener
     {
         // Update "vbeloce" dello snapshot grafico e repaint
         synchronized (engine.getParticles()) {
-            panel.updateSnapshot(engine.getParticles(), engine.getSimulationTime(), SimulationConfig.DT);
+            panel.updateSnapshot(engine.getParticles(), engine.getMetrics().getSimulationTime(), SimulationConfig.DT);
         }
         panel.repaint();
 
@@ -57,10 +57,10 @@ implements ActionListener
         }
 
         // Salvataggio Screenshot della simulazione
-        long currentStep = engine.getStepCount();
+        long currentStep = engine.getMetrics().getStepCount();
         if (currentStep == 0 || (currentStep > 0 && currentStep % 15000 == 0 && currentStep != lastScreenshotStep)) {
             lastScreenshotStep = currentStep;
-            File file = new File(new File("screenshots"), String.format("screenshot_%s_t%09d.png", SimulationConfig.SESSION_ID, (long) engine.getSimulationTime()));
+            File file = new File(new File("screenshots"), String.format("screenshot_%s_t%09d.png", SimulationConfig.SESSION_ID, (long) engine.getMetrics().getSimulationTime()));
             panel.saveScreenshot(file);
         }
     }

@@ -44,7 +44,7 @@ public class Main
             try {
                 Savepoint.SavepointState state = Savepoint.load(SimulationConfig.SAVEPOINT_FILE);
                 System.out.println("Savepoint ripristinato.");
-                return new SimulationEngine(state.particles, state.simulationTime, state.stepCount, state.totalMerges, state.totalBounces, state.totalEscapes, state.totalStarFalls, state.totalFragmentations);
+                return new SimulationEngine(state.particles, state.metrics);
             } catch (IOException e) {
                 System.err.println("Impossibile ripristinare il savepoint (" + e.getMessage() + "), generazione di un nuovo disco.");
             }

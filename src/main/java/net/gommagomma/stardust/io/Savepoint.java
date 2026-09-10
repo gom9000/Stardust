@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.gommagomma.stardust.SimulationEngine;
+import net.gommagomma.stardust.SimulationMetrics;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 
@@ -43,6 +44,7 @@ public class Savepoint
     public static void save(String path, SimulationEngine engine) throws IOException
     {
         List<Particle> snapshot;
+        SimulationMetrics metrics = engine.getMetrics();
         double simTime;
         long stepCount, totalMerges, totalBounces, totalFragmentations, totalEscapes, totalStarFalls;
 
@@ -50,13 +52,13 @@ public class Savepoint
         synchronized (engine.getParticles())
         {
             snapshot = new ArrayList<>(engine.getParticles());
-            simTime = engine.getSimulationTime();
-            stepCount = engine.getStepCount();
-            totalMerges = engine.getTotalMerges();
-            totalBounces = engine.getTotalBounces();
-            totalFragmentations = engine.getTotalFragmentations();
-            totalEscapes = engine.getTotalEscapes();
-            totalStarFalls = engine.getTotalStarFalls();
+            simTime = metrics.getSimulationTime();
+            stepCount = metrics.getStepCount();
+            totalMerges = metrics.getTotalMerges();
+            totalBounces = metrics.getTotalBounces();
+            totalFragmentations = metrics.getTotalFragmentations();
+            totalEscapes = metrics.getTotalEscapes();
+            totalStarFalls = metrics.getTotalStarFalls();
         }
 
         // 2. SCRITTURA SU DISCO IN CORRENTE CONTINUA (Fuori dal lock!)
@@ -166,11 +168,11 @@ public class Savepoint
 
             // Evita che eventuali NUOVE particelle create dopo il ripristino riusino ID gia' presenti
             Particle.ensureIdCounterAtLeast(maxId + 1);
-
+            
             System.out.printf("[SAVEPOINT] Ripristinato: %s (%d particelle, t=%.1fs, %d fusioni, %d frammentazioni)%n", 
                     path, particles.size(), simulationTime, totalMerges, totalFragmentations);
 
-            return new SavepointState(particles, simulationTime, stepCount, totalMerges, totalBounces, totalFragmentations, totalEscapes, totalStarFalls);
+            return new SavepointState(particles, new SimulationMetrics(simulationTime, stepCount, totalMerges, totalBounces, totalFragmentations, totalEscapes, totalStarFalls));
         }
     }
 
@@ -178,26 +180,12 @@ public class Savepoint
     public static class SavepointState
     {
         public final List<Particle> particles;
-        public final double simulationTime;
-        public final long stepCount;
-        public final long totalMerges;
-        public final long totalBounces;
-        public final long totalFragmentations;
-        public final long totalEscapes;
-        public final long totalStarFalls;
+        public final SimulationMetrics metrics;
 
-        SavepointState(List<Particle> particles, double simulationTime, long stepCount, 
-                       long totalMerges, long totalBounces, long totalFragmentations, 
-                       long totalEscapes, long totalStarFalls)
+        public SavepointState(List<Particle> particles, SimulationMetrics metrics)
         {
             this.particles = particles;
-            this.simulationTime = simulationTime;
-            this.stepCount = stepCount;
-            this.totalMerges = totalMerges;
-            this.totalBounces = totalBounces;
-            this.totalFragmentations = totalFragmentations;
-            this.totalEscapes = totalEscapes;
-            this.totalStarFalls = totalStarFalls;
+            this.metrics = metrics;
         }
     }
 }
