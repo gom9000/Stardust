@@ -8,7 +8,8 @@ import java.nio.file.Paths;
 public final class SimulationPaths
 {
     public final String simulationId;
-    public final Path root;
+    public final Path defaultParamsFile;
+    public final Path paramsFile;
     public final Path savepointFile;
     public final Path eventsLogFile;
     public final Path runsLogFile;
@@ -16,16 +17,19 @@ public final class SimulationPaths
 
     public SimulationPaths(String simulationId) {
         this.simulationId = simulationId;
-        this.root = Paths.get("simulations", simulationId);
-        this.savepointFile = root.resolve("savepoint.txt");
-        this.eventsLogFile = root.resolve("events.log");
-        this.runsLogFile = root.resolve("runs.log");
-        this.screenshotsDir = root.resolve("screenshots");
+        Path root = Paths.get(".");
+        Path sim = Paths.get("simulations", simulationId);
+        this.defaultParamsFile = root.resolve("parameters.txt");
+        this.paramsFile = sim.resolve("parameters.txt");
+        this.savepointFile = sim.resolve("savepoint.txt");
+        this.eventsLogFile = sim.resolve("events.log");
+        this.runsLogFile = sim.resolve("runs.log");
+        this.screenshotsDir = sim.resolve("screenshots");
 
         try {
             Files.createDirectories(screenshotsDir);
         } catch (IOException e) {
-            throw new RuntimeException("Impossibile creare la cartella della simulazione: " + root, e);
+            throw new RuntimeException("Impossibile creare la cartella della simulazione: " + sim, e);
         }
     }
 }

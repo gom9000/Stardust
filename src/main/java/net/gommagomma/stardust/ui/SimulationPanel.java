@@ -24,18 +24,18 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import net.gommagomma.stardust.PhysicsConstants;
-import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.SimulationEngine;
+import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.model.Particle;
 
 public class SimulationPanel extends JPanel {
 
     private static final long serialVersionUID = 1L;
 
-    private SimulationEngine simulationEngine;
+    private final SimulationEngine simulationEngine;
+    private final SimulationParams params;
 
-    private static final double MIN_PARTICLE_RADIUS = Math.cbrt((3.0 * SimulationConfig.BASE_PARTICLE_MASS_MIN)
-            / (4.0 * Math.PI * SimulationConfig.INITIAL_DUST_DENSITY));
+    private final double MIN_PARTICLE_RADIUS;
 
     private double simulatedTimeSeconds = 0.0;
     private double currentDtSeconds = 0.0;
@@ -63,17 +63,18 @@ public class SimulationPanel extends JPanel {
     private double panY = 0.0;
 
     private static final double MIN_ZOOM = 0.2;
-    private static final double MAX_ZOOM = 50.0;
+    private static final double MAX_ZOOM = 1500.0;
     private static final double ZOOM_SENSITIVITY = 1.1;
 
-    public SimulationPanel() {
-        this(null);
-    }
 
-    public SimulationPanel(SimulationEngine engine) {
+    public SimulationPanel(SimulationEngine engine, SimulationParams params) {
         this.simulationEngine = engine;
+        this.params = params;
         this.setBackground(Color.BLACK);
         this.setFocusable(true);
+        
+        this.MIN_PARTICLE_RADIUS = Math.cbrt((3.0 * params.baseParticleMassMin)
+                / (4.0 * Math.PI * params.initialDustDensity));
 
         this.addKeyListener(new KeyAdapter() {
             @Override
@@ -148,10 +149,6 @@ public class SimulationPanel extends JPanel {
         });
     }
 
-    public void setSimulationEngine(SimulationEngine engine) {
-        this.simulationEngine = engine;
-    }
-
     public boolean isPaused() {
         return isPaused;
     }
@@ -188,28 +185,62 @@ public class SimulationPanel extends JPanel {
 
     private void handleMouseClick(int mouseX, int mouseY, boolean isCtrlPressed, boolean isShiftPressed) {
         this.requestFocusInWindow();
+
         synchronized (this) {
             if (particleCount == 0) return;
 
             int centerX = (int) (getWidth() / 2.0 + panX);
             int centerY = (int) (getHeight() / 2.0 + panY);
 
-            double maxExpectedRadius = SimulationConfig.DISK_OUTER_RADIUS;
+            double maxExpectedRadius = params.diskOuterRadius;
             double maxWindowRadius = Math.min(getWidth() / 2.0, getHeight() / 2.0) * 0.85;
             double baseScale = maxWindowRadius / maxExpectedRadius;
             double scale = baseScale * zoomFactor;
+
+            // Se la vista co-rotante è attiva, il rendering ruota il mondo attorno alla particella
+            // selezionata (vedi paintComponent): l'hit-test deve applicare la STESSA rotazione,
+            // altrimenti testa posizioni diverse da quelle mostrate a schermo. Si calcola quindi
+            // prima l'indice/angolo di riferimento della particella oggi selezionata (se la vista
+            // co-rotante è attiva), poi si trasformano le posizioni di TUTTE le particelle di
+            // conseguenza prima del confronto con il punto cliccato.
+            int refIdx = -1;
+            double cosA = 1.0, sinA = 0.0;
+            double refX = 0.0, refY = 0.0;
+
+            if (isCoRotatingViewActive && selectedParticleId != -1) {
+                for (int i = 0; i < particleCount; i++) {
+                    if (renderId[i] == selectedParticleId) { refIdx = i; break; }
+                }
+                if (refIdx != -1) {
+                    double velAngle = Math.atan2(renderVy[refIdx], renderVx[refIdx]);
+                    cosA = Math.cos(-velAngle);
+                    sinA = Math.sin(-velAngle);
+                    refX = renderX[refIdx];
+                    refY = renderY[refIdx];
+                }
+            }
 
             int closestIdx = -1;
             double minDistSq = Double.MAX_VALUE;
 
             for (int i = 0; i < particleCount; i++) {
-                int px = centerX + (int) (renderX[i] * scale);
-                int py = centerY + (int) (renderY[i] * scale);
+                double worldX = renderX[i];
+                double worldY = renderY[i];
+
+                if (refIdx != -1) {
+                    double dx = worldX - refX;
+                    double dy = worldY - refY;
+                    worldX = dx * cosA - dy * sinA;
+                    worldY = dx * sinA + dy * cosA;
+                }
+
+                int px = centerX + (int) (worldX * scale);
+                int py = centerY + (int) (worldY * scale);
 
                 double dx = px - mouseX;
                 double dy = py - mouseY;
                 double distSq = dx * dx + dy * dy;
-
+                
                 double radiusRatio = Math.max(1.0, renderRadius[i] / MIN_PARTICLE_RADIUS);
                 double particleSizePx = renderIsMerged[i] ?
                         Math.min(24, (3 + Math.log(radiusRatio) * 2.0) * Math.sqrt(zoomFactor)) :
@@ -223,7 +254,7 @@ public class SimulationPanel extends JPanel {
                     closestIdx = i;
                 }
             }
-
+            
             if (closestIdx == -1) {
                 selectedParticleId = -1;
                 activeGapParticleId = -1;
@@ -340,7 +371,7 @@ public class SimulationPanel extends JPanel {
             }
         }
 
-        double maxExpectedRadius = SimulationConfig.DISK_OUTER_RADIUS;
+        double maxExpectedRadius = params.diskOuterRadius;
         double maxWindowRadius = Math.min(getWidth() / 2.0, getHeight() / 2.0) * 0.85;
         double baseScale = maxWindowRadius / maxExpectedRadius;
         double scale = baseScale * zoomFactor;
@@ -404,8 +435,8 @@ public class SimulationPanel extends JPanel {
         }
 
         // 2. Top N corpi e orbite
-        int[] topIndices = findTopMassiveIndices(mass, count, SimulationConfig.TOP_ORBITS_COUNT);
-        double mu = PhysicsConstants.G * SimulationConfig.STAR_MASS;
+        int[] topIndices = findTopMassiveIndices(mass, count, params.topOrbitsCount);
+        double mu = PhysicsConstants.G * params.centralStarMass;
         Color defaultOrbitColor = new Color(255, 255, 255, 70);
         BasicStroke defaultStroke = new BasicStroke((float)(1.0 / scale), BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
                                                 10.0f, new float[]{5.0f / (float)scale, 5.0f / (float)scale}, 0.0f);
@@ -575,16 +606,21 @@ public class SimulationPanel extends JPanel {
             double m = mass[i];
             if (m <= 0) continue;
 
-            if (top[0] == -1 || m > mass[top[0]]) {
-                top[2] = top[1];
-                top[1] = top[0];
-                top[0] = i;
-            } else if (top[1] == -1 || m > mass[top[1]]) {
-                top[2] = top[1];
-                top[1] = i;
-            } else if (top[2] == -1 || m > mass[top[2]]) {
-                top[2] = i;
+            // Trova la posizione in cui inserire i, scorrendo la classifica dal basso
+            // e spostando giù gli elementi più piccoli, come un inserimento in una lista ordinata.
+            int insertAt = -1;
+            for (int slot = 0; slot < topN; slot++) {
+                if (top[slot] == -1 || m > mass[top[slot]]) {
+                    insertAt = slot;
+                    break;
+                }
             }
+            if (insertAt == -1) continue; // i e' piu' piccolo di tutti i topN attuali
+
+            for (int slot = topN - 1; slot > insertAt; slot--) {
+                top[slot] = top[slot - 1];
+            }
+            top[insertAt] = i;
         }
         return top;
     }
@@ -629,9 +665,9 @@ public class SimulationPanel extends JPanel {
     }
 
     private void drawLowDensityRadialGaps(Graphics2D g2World, float[] x, float[] y, int count, double scale) {
-        double maxRadius = SimulationConfig.DISK_OUTER_RADIUS;
-        double minRadius = SimulationConfig.DISK_INNER_RADIUS;
-        double binWidthWorld = SimulationConfig.DENSITY_RING_WIDTH;
+        double maxRadius = params.diskOuterRadius;
+        double minRadius = params.diskInnerRadius;
+        double binWidthWorld = params.densityRingWidth;
 
         int numBins = (int) Math.ceil(maxRadius / binWidthWorld);
         if (numBins < 5) return;
@@ -658,7 +694,7 @@ public class SimulationPanel extends JPanel {
             double localAvg = (binCounts[b - 2] + binCounts[b - 1] + binCounts[b + 1] + binCounts[b + 2]) / 4.0;
             if (localAvg < 5.0) continue;
 
-            double maxAllowedDensityRatio = 1.0 - SimulationConfig.GAP_MIN_CLEARING_RATIO;
+            double maxAllowedDensityRatio = 1.0 - params.gapMinClearingRatio;
             double lowDensityThreshold = localAvg * maxAllowedDensityRatio;
 
             if (binCounts[b] < lowDensityThreshold) {
@@ -679,7 +715,7 @@ public class SimulationPanel extends JPanel {
 
     private void drawSinglePlanetaryClearingZone(Graphics2D g2World, float[] x, float[] y, int count, 
                                                  double rx, double ry, double vx, double vy, double mass) {
-        double mu = PhysicsConstants.G * SimulationConfig.STAR_MASS;
+        double mu = PhysicsConstants.G * params.centralStarMass;
         double rMag = Math.hypot(rx, ry);
         if (rMag == 0) return;
 
@@ -688,7 +724,7 @@ public class SimulationPanel extends JPanel {
         if (energy >= 0) return; 
 
         double a = -mu / (2.0 * energy);
-        double starMass = SimulationConfig.STAR_MASS;
+        double starMass = params.centralStarMass;
         double hillRadius = a * Math.cbrt((mass / starMass) / 3.0);
         double clearingHalfWidth = Math.max(hillRadius * 2.5, a * 0.02);
 
@@ -726,7 +762,7 @@ public class SimulationPanel extends JPanel {
 
     private void drawTimeHUD(Graphics2D g2, double totalSimulatedSeconds, double currentDt) {
         int hudWidth = 210;
-        int hudHeight = 65;
+        int hudHeight = 82;
         int hudX = getWidth() - hudWidth - 15;
         int hudY = 15;
 
@@ -737,7 +773,7 @@ public class SimulationPanel extends JPanel {
         g2.setStroke(new BasicStroke(1.0f));
         g2.drawRoundRect(hudX, hudY, hudWidth, hudHeight, 10, 10);
 
-        double days = totalSimulatedSeconds / (24.0 * 3600.0);	
+        double days = totalSimulatedSeconds / (24.0 * 3600.0);
         double years = days / 365.25;
 
         g2.setColor(Color.WHITE);
@@ -749,6 +785,7 @@ public class SimulationPanel extends JPanel {
 
         g2.setColor(new Color(160, 200, 220));
         g2.drawString(String.format("dt: %.1f s/step", currentDt), textX, textY + 34);
+        g2.drawString(String.format("zoom: %.2fx", zoomFactor), textX, textY + 51);
     }
 
     public void saveScreenshot(File outputFile) {

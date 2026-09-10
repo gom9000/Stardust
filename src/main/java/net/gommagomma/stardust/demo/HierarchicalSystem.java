@@ -3,7 +3,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.gommagomma.stardust.PhysicsConstants;
-import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.Stardust;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -13,18 +13,18 @@ public class HierarchicalSystem
 	public static void main(String[] args) throws Exception
     {
         Stardust stardust = new Stardust("sole-terra-luna", "Stardust — Sistema Gerarchico");
-        stardust.setParticles(createHierarchicalSystem());
+        stardust.setParticles(createHierarchicalSystem(stardust.getContext()));
         stardust.start();
     }
 
 
-    private static List<Particle> createHierarchicalSystem()
+    private static List<Particle> createHierarchicalSystem(SimulationParams params)
     {
         List<Particle> particles = new ArrayList<>();
         
         // 2. Pianeta in orbita attorno alla stella (es. a 1 AU)
         double starPlanetDist = 1.0 * PhysicsConstants.AU;
-        double vPlanet = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / starPlanetDist);
+        double vPlanet = Math.sqrt(PhysicsConstants.G * params.centralStarMass / starPlanetDist);
         Particle planet = new Particle(
                 new Vector3D(starPlanetDist, 0, 0),
                 new Vector3D(0, vPlanet, 0),

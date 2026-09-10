@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.gommagomma.stardust.PhysicsConstants;
-import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.physics.collision.CollisionResult;
@@ -12,18 +12,26 @@ import net.gommagomma.stardust.physics.gravity.GravityCalculator;
 
 public class Physics
 {
+	private final SimulationParams params;
+	private final GravityCalculator gravitycalculator;
+
+	public Physics(SimulationParams params) {
+        this.params = params;
+        this.gravitycalculator = new GravityCalculator(params);
+    }
+
+
     //
     // FORZE DI CAMPO E FLUIDO
     //
 
 	/**
 	 * Forza netta N-body esercitata da p2 su p1: somma della componente gravitazionale e,
-	 * se SimulationConfig.ENABLE_ELECTROSTATIC_FORCE è attivo,
-	 * della componente elettrostatica (Coulomb).
+	 * se params.enableElectrostaticForce è attivo, della componente elettrostatica (Coulomb).
 	 */
-	public static Vector3D calculateGravityAndElectrostaticForce(Particle p1, Particle p2) {
+	public Vector3D calculateGravityAndElectrostaticForce(Particle p1, Particle p2) {
 	    Vector3D f = calculateGravity(p1, p2);
-	    if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
+	    if (params.enableElectrostaticForce) {
 	        f = f.add(calculateCoulomb(p1, p2));
 	    }
 	    return f;
@@ -32,32 +40,32 @@ public class Physics
 	/**
 	 * Forza gravitazionale newtoniana esercitata da p2 su p1. 
 	 */
-	public static Vector3D calculateGravity(Particle p1, Particle p2)
+	public Vector3D calculateGravity(Particle p1, Particle p2)
 	{
-        return GravityCalculator.calculateGravity(p1, p2, SimulationConfig.ACTIVE_GRAVITY_MODEL);
+        return gravitycalculator.calculateGravity(p1, p2, params.activeGravityModel);
     }
 
     /**
      * Forza attrattiva verso la stella.
      */
-    public static Vector3D calculateCentralStarGravity(Particle p) {
-    	return GravityCalculator.calculateGravity(p, SimulationConfig.STAR);
+    public Vector3D calculateCentralStarGravity(Particle p) {
+    	return gravitycalculator.calculateGravity(p, params.centralStar);
     }
 
     /**
      * Energia potenziale gravitazionale tra la particella e la stella centrale.
      * Termine a un corpo (non va diviso per 2 come il potenziale mutuo tra particelle).
      */
-    public static double calculateCentralStarPotentialEnergy(Particle p) {
+    public double calculateCentralStarPotentialEnergy(Particle p) {
         double r = p.getPosition().magnitude();
         if (r <= 0.0) return 0.0;
-        return -(PhysicsConstants.G * SimulationConfig.STAR_MASS * p.getMass()) / r;
+        return -(PhysicsConstants.G * params.centralStarMass * p.getMass()) / r;
     }
     
     /**
      * Forza elettrostatica esercitata da p2 su p1 (repulsiva se cariche concordi).
      */
-    public static Vector3D calculateCoulomb(Particle p1, Particle p2) {
+    public Vector3D calculateCoulomb(Particle p1, Particle p2) {
         double q1 = p1.getCharge();
         double q2 = p2.getCharge();
 
@@ -68,7 +76,7 @@ public class Physics
 
         if (distanceSquared == 0) return new Vector3D(0, 0, 0);
 
-        double epsSq = SimulationConfig.SOFTENING * SimulationConfig.SOFTENING;
+        double epsSq = params.softening * params.softening;
         double effectiveDistSq = distanceSquared + epsSq;
         double effectiveDist = Math.sqrt(effectiveDistSq);
 
@@ -82,7 +90,7 @@ public class Physics
      * la velocità sotto-kepleriana data dal gradiente di pressione radiale 
      * e la transizione automatica tra il Regime di Epstein (polveri) e Stokes (corpi estesi).
      */
-    public static Vector3D calculateDrag(Particle p) {
+    public Vector3D calculateDrag(Particle p) {
         Vector3D pos = p.getPosition();
         double x = pos.getX();
         double y = pos.getY();
@@ -101,12 +109,11 @@ public class Physics
         double mH2 = 3.34e-27; // Massa molecola d'idrogeno (kg)
         double soundSpeed = Math.sqrt((kB * temperature) / mH2);
 
-        double omegaK = Math.sqrt((PhysicsConstants.G * SimulationConfig.STAR_MASS) / (r3D * r3D * r3D));
+        double omegaK = Math.sqrt((PhysicsConstants.G * params.centralStarMass) / (r3D * r3D * r3D));
         double scaleHeight = soundSpeed / omegaK;
 
         // 2. PROFILO DI DENSITÀ DEL GAS 3D
-        double midplaneGasDensity = SimulationConfig.GAS_DENSITY_BASE * 
-                Math.pow(r3D / PhysicsConstants.AU, SimulationConfig.GAS_PROFILE_EXPONENT);
+        double midplaneGasDensity = params.gasDensityBase * Math.pow(r3D / PhysicsConstants.AU, params.gasProfileExponent);
         
         double localGasDensity = midplaneGasDensity * Math.exp(-(z * z) / (2.0 * scaleHeight * scaleHeight));
 
@@ -114,7 +121,7 @@ public class Physics
 
         // 3. VELOCITÀ DEL GAS SOTTO-KEPLERIANA (PRESSIONE RADIALE)
         double hOverR = scaleHeight / r3D;
-        double eta = 0.5 * (hOverR * hOverR) * Math.abs(SimulationConfig.GAS_PROFILE_EXPONENT);
+        double eta = 0.5 * (hOverR * hOverR) * Math.abs(params.gasProfileExponent);
         
         double vKeplerian = omegaK * r3D;
         double vGasMag = vKeplerian * Math.sqrt(Math.max(0.0, 1.0 - eta));
@@ -130,7 +137,7 @@ public class Physics
         double meanFreePath = mH2 / (Math.sqrt(2.0) * sigmaH2 * localGasDensity);
 
         //double R = p.getRadius();
-        double R = Math.cbrt((3.0 * p.getMass()) / (4.0 * Math.PI * SimulationConfig.DRAG_REFERENCE_DENSITY));
+        double R = Math.cbrt((3.0 * p.getMass()) / (4.0 * Math.PI * params.dragReferenceDensity));
         double forceFactor;
 
         if (R <= (9.0 / 4.0) * meanFreePath) {
@@ -147,7 +154,7 @@ public class Physics
         return vRel.multiply(forceFactor);
     }
 
-    public static double calculateParticleEnergy(Particle p, List<Particle> allParticles)
+    public double calculateParticleEnergy(Particle p, List<Particle> allParticles)
     {
         if (!p.isAlive()) return 0.0;
 
@@ -157,7 +164,7 @@ public class Physics
 
         // Energia Potenziale con la Stella Centrale
         double rStar = p.getPosition().magnitude();
-        double potentialStar = (rStar > 0) ? -(PhysicsConstants.G * SimulationConfig.STAR_MASS * p.getMass()) / rStar : 0.0;
+        double potentialStar = (rStar > 0) ? -(PhysicsConstants.G * params.centralStarMass * p.getMass()) / rStar : 0.0;
 
         // Energia Potenziale Mutua con le altre (divisa per 2 per evitare il doppio conteggio delle coppie)
         double potentialMutual = 0.0;
@@ -177,18 +184,18 @@ public class Physics
     // RAGGI E GEOMETRIA DI CATTURA
     //
 
-    public static double getHillRadius(Particle p) {
+    public double getHillRadius(Particle p) {
         double r = p.getPosition().magnitude();
-        return r * Math.cbrt(p.getMass() / (3.0 * SimulationConfig.STAR_MASS));
+        return r * Math.cbrt(p.getMass() / (3.0 * params.centralStarMass));
     }
 
-    public static double getEffectiveCaptureRadius(Particle p) {
-        double hillCapture = getHillRadius(p) * SimulationConfig.HILL_CAPTURE_FRACTION;
+    public double getEffectiveCaptureRadius(Particle p) {
+        double hillCapture = getHillRadius(p) * params.hillCaptureFraction;
         return Math.max(p.getRadius(), hillCapture);
     }
 
-    public static double getCaptureReach(Particle p) {
-        double hillReach = getHillRadius(p) * SimulationConfig.HILL_AMPLIFICATION;
+    public double getCaptureReach(Particle p) {
+        double hillReach = getHillRadius(p) * params.hillAmplification;
         return Math.max(p.getRadius(), hillReach);
     }
 
@@ -199,12 +206,12 @@ public class Physics
     /**
      * Determina se due particelle sono abbastanza vicine da collidere nel timestep dt.
      */
-    public static boolean checkCollision2(Particle p1, Particle p2) {
+    public boolean checkCollision2(Particle p1, Particle p2) {
         double distance = p1.getPosition().distanceTo(p2.getPosition());
         double combinedCaptureRadius = getEffectiveCaptureRadius(p1) + getEffectiveCaptureRadius(p2);
         
         double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-        double sweptBuffer = relSpeed * SimulationConfig.DT;
+        double sweptBuffer = relSpeed * params.dt;
 
         return distance <= (combinedCaptureRadius + sweptBuffer);
     }
@@ -217,14 +224,14 @@ public class Physics
     // controllava un ipotetico step FUTURO invece di verificare quello appena
     // avvenuto: un corpo che tunnela e si allontana veniva perso perché a
     // fine step la distanza attuale risultava già superiore alla soglia.
-    public static boolean checkCollision(Particle p1, Particle p2) {
+    public boolean checkCollision(Particle p1, Particle p2) {
         Vector3D x1_start = p1.getPreviousPosition();
         Vector3D x2_start = p2.getPreviousPosition();
 
         Vector3D v1 = p1.getVelocity();
         Vector3D v2 = p2.getVelocity();
 
-        double dt = SimulationConfig.DT;
+        double dt = params.dt;
 
         // Vettore posizione relativa iniziale e velocità relativa
         Vector3D r0 = x1_start.subtract(x2_start);
@@ -260,7 +267,7 @@ public class Physics
     /**
      * Valuta l'esito della collisione tra due particelle selezionando tra FUSIONE, RIMBALZO o FRAMMENTAZIONE.
      */
-    public static CollisionResult evaluateCollision(Particle p1, Particle p2)
+    public CollisionResult evaluateCollision(Particle p1, Particle p2)
     {
         Vector3D relVel = p1.getVelocity().subtract(p2.getVelocity());
         double relSpeed = relVel.magnitude();
@@ -273,11 +280,11 @@ public class Physics
         double escapeVelocity = Math.sqrt((2.0 * PhysicsConstants.G * totalMass) / distance);
 
         // Soglia di FUSIONE / CATTURA
-        double captureThreshold = escapeVelocity * SimulationConfig.GRAVITATIONAL_CAPTURE_MULTIPLIER;
-        double effectiveCaptureThreshold = Math.max(SimulationConfig.DUST_COHESION_THRESHOLD, captureThreshold);
+        double captureThreshold = escapeVelocity * params.gravitationalCaptureMultiplier;
+        double effectiveCaptureThreshold = Math.max(params.dustCohesionThreshold, captureThreshold);
 
         // Soglia di FRAMMENTAZION
-        double fragMultiplier = Math.max(1.0, SimulationConfig.FRAGMENTATION_MULTIPLIER);
+        double fragMultiplier = Math.max(1.0, params.fragmentationMultiplier);
         double fragmentationThreshold = effectiveCaptureThreshold * fragMultiplier;
 
         if (relSpeed <= effectiveCaptureThreshold) {
@@ -292,7 +299,7 @@ public class Physics
     /**
      * Risolve l'urto anelastico fondendo la particella 'loser' dentro la particella 'winner'.
      */
-    public static void mergeParticles(Particle winner, Particle loser) {
+    public void mergeParticles(Particle winner, Particle loser) {
         double totalMass = winner.getMass() + loser.getMass();
 
         Vector3D newPos = winner.getPosition().multiply(winner.getMass())
@@ -321,7 +328,7 @@ public class Physics
      * Risolve l'urto cinematico (rimbalzo) tra due particelle conservando la quantità di moto.
      * Separa fisicamente i corpi sovrapposti per evitare il fenomeno di interpenetrazione continua.
      */
-    public static void resolveBounce(Particle p1, Particle p2, double restitution) {
+    public void resolveBounce(Particle p1, Particle p2, double restitution) {
         Vector3D deltaPos = p1.getPosition().subtract(p2.getPosition());
         double dist = deltaPos.magnitude();
         
@@ -333,7 +340,6 @@ public class Physics
 
         // Se le particelle si stanno già allontanando, nessuna azione sugli impulsi
         if (velAlongNormal < 0) {
-            double totalMass = p1.getMass() + p2.getMass();
             double inverseMassSum = (1.0 / p1.getMass()) + (1.0 / p2.getMass());
             
             // Calcolo dell'impulso
@@ -368,7 +374,7 @@ public class Physics
      * @param p2 Seconda particella
      * @return Lista dei frammenti generati
      */
-    public static List<Particle> fragmentParticles(Particle p1, Particle p2) {
+    public List<Particle> fragmentParticles(Particle p1, Particle p2) {
         List<Particle> fragments = new ArrayList<>();
         double totalMass = p1.getMass() + p2.getMass();
         int numFragments = 2 + (int)(Math.random() * 4);

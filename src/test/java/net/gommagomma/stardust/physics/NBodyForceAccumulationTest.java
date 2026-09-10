@@ -8,27 +8,25 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 
 /**
  * Verifica l'invariante fondamentale del problema N-corpi quando le forze vengono accumulate
- * con lo schema a coppie usato da SimulationEngine.computeForcesSequential/Parallel:
- * per ogni coppia (i, j) la forza calcolata una volta viene sommata a p_i e SOTTRATTA a p_j
- * (terza legge di Newton). Qualunque bug di segno in questo pattern (es. dimenticare il
- * "multiply(-1)", o applicarlo alla particella sbagliata) farebbe sì che il sistema
- * acquisisca quantità di moto dal nulla: un bug subdolo, perché in un sistema piccolo o
- * simmetrico può non saltare all'occhio guardando le orbite, ma è rilevabile immediatamente
- * sommando le forze nette su tutte le particelle.
+ * con lo schema a coppie usato da SimulationEngine.computeForcesSequential/Parallel.
  */
 class NBodyForceAccumulationTest {
+
+    private final SimulationParams params = new SimulationParams();
+    private final Physics physics = new Physics(params);
 
     private static Particle particleAt(double x, double y, double z, double mass) {
         return new Particle(new Vector3D(x, y, z), new Vector3D(0, 0, 0), mass, 0.0, 3000.0);
     }
 
     /** Riproduce esattamente il pattern di SimulationEngine.computeForcesSequential. */
-    private static void applyPairwiseForces(List<Particle> particles) {
+    private void applyPairwiseForces(List<Particle> particles) {
         for (Particle p : particles) {
             p.resetForce();
         }
@@ -37,7 +35,7 @@ class NBodyForceAccumulationTest {
             Particle p1 = particles.get(i);
             for (int j = i + 1; j < n; j++) {
                 Particle p2 = particles.get(j);
-                Vector3D fTotal = Physics.calculateGravityAndElectrostaticForce(p1, p2);
+                Vector3D fTotal = physics.calculateGravityAndElectrostaticForce(p1, p2);
                 p1.addForce(fTotal);
                 p2.addForce(fTotal.multiply(-1));
             }
@@ -70,10 +68,6 @@ class NBodyForceAccumulationTest {
 
     @Test
     void perParticleForce_matchesDirectSummationOverAllOthers() {
-        // Oltre alla conservazione globale, verifica che ogni singola particella riceva la
-        // somma corretta di TUTTE le forze dalle altre (non solo quelle con indice minore/maggiore):
-        // il pattern i<j con segno invertito su j deve produrre lo stesso risultato di un calcolo
-        // O(N^2) completo per ciascuna particella.
         List<Particle> particles = new ArrayList<>();
         particles.add(particleAt(0, 0, 0, 4.0));
         particles.add(particleAt(6, 0, 0, 7.0));
@@ -86,7 +80,7 @@ class NBodyForceAccumulationTest {
             Vector3D expected = new Vector3D(0, 0, 0);
             for (Particle other : particles) {
                 if (other == target) continue;
-                expected = expected.add(Physics.calculateGravityAndElectrostaticForce(target, other));
+                expected = expected.add(physics.calculateGravityAndElectrostaticForce(target, other));
             }
             Vector3D actual = target.getForce();
             double scale = Math.max(1.0, expected.magnitude());

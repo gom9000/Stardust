@@ -12,6 +12,8 @@ import net.gommagomma.stardust.physics.collision.CollisionGrid;
 import net.gommagomma.stardust.physics.collision.CollisionResult;
 
 public class SimulationEngine {
+	private final SimulationParams params;
+	private final Physics physics;
     private final List<Particle> particles;
     private final SimulationMetrics metrics;
     private final RunLogger logger;
@@ -36,18 +38,22 @@ public class SimulationEngine {
     public void togglePause() { this.paused = !this.paused; }
     
     // Costruttore per una nuova simulazione
-    public SimulationEngine(List<Particle> particles, RunLogger logger) {
+    public SimulationEngine(List<Particle> particles, RunLogger logger, SimulationParams params) {
         this.particles = particles;
+        this.params = params;
         this.metrics = new SimulationMetrics();
         this.logger = logger;
+        this.physics = new Physics(params);
     }
 
     // Costruttore di ripristino da savepoint
-    public SimulationEngine(List<Particle> particles, RunLogger logger, SimulationMetrics metrics)
+    public SimulationEngine(List<Particle> particles, RunLogger logger, SimulationMetrics metrics, SimulationParams params)
     {
         this.particles = particles;
+        this.params = params;
         this.logger = logger;
         this.metrics = metrics;
+        this.physics = new Physics(params);
     }
 
     public List<Particle> getParticles() { return particles; }
@@ -78,15 +84,15 @@ public class SimulationEngine {
         // Forze: gravità stella + densità gas
         for (Particle p : particles) {
             p.resetForce();
-            p.addForce(Physics.calculateCentralStarGravity(p));
-            p.addForce(Physics.calculateDrag(p));
+            p.addForce(physics.calculateCentralStarGravity(p));
+            p.addForce(physics.calculateDrag(p));
         }
 
         // Forze N-body: gravità + Elettrostatica
         int n = particles.size();
-        if (SimulationConfig.USE_BARNES_HUT && n >= SimulationConfig.BARNES_HUT_THRESHOLD) {
+        if (params.useBarnesHut && n >= params.barnesHutThreshold) {
             computeForcesBarnesHut();
-        } else if (SimulationConfig.USE_PARALLEL_FORCES && n > 200) {
+        } else if (params.useParallelForces && n > 200) {
             computeForcesParallel();
         } else {
             computeForcesSequential();
@@ -96,8 +102,8 @@ public class SimulationEngine {
         // Aggiornamento cinematico e condizioni ai bordi
         for (Particle p : particles) {
         	if (p.isAlive()) {
-                p.update(SimulationConfig.DT);
-                checkParticleBoundaries(p, SimulationConfig.STAR_RADIUS, SimulationConfig.DISK_OUTER_RADIUS * 3.0);
+                p.update(params.dt);
+                checkParticleBoundaries(p, params.centralStarRadius, params.diskOuterRadius * 3.0);
             }
         }
         long t2 = System.nanoTime();
@@ -112,12 +118,12 @@ public class SimulationEngine {
         double forceMs = (t1 - t0) / 1_000_000.0;
         double integrationMs = (t2 - t1) / 1_000_000.0;
         double collisionMs  = (t3 - t2) / 1_000_000.0;
-        if (SimulationConfig.LOG_SUMMARY_EVERY_N_STEPS > 0 && metrics.getStepCount() % SimulationConfig.LOG_SUMMARY_EVERY_N_STEPS == 0) {
+        if (params.logSummaryEveryNSteps > 0 && metrics.getStepCount() % params.logSummaryEveryNSteps == 0) {
             printSummary(forceMs, integrationMs, collisionMs);
         }
 
         // Aggiornamento per step successivo
-        metrics.addTime(SimulationConfig.DT);
+        metrics.addTime(params.dt);
         metrics.incrementStep();
         updateTpsCounter();
     }
@@ -146,7 +152,7 @@ public class SimulationEngine {
 
             for (int j = i + 1; j < numParticles; j++) {
                 Particle p2 = particles.get(j);
-                Vector3D fTotal = Physics.calculateGravityAndElectrostaticForce(p1, p2);
+                Vector3D fTotal = physics.calculateGravityAndElectrostaticForce(p1, p2);
 
                 p1.addForce(fTotal);
                 p2.addForce(fTotal.multiply(-1));
@@ -173,7 +179,7 @@ public class SimulationEngine {
             for (int j = 0; j < particles.size(); j++) {
                 if (i == j) continue;
                 Particle p2 = particles.get(j);
-                Vector3D f = Physics.calculateGravityAndElectrostaticForce(p1, p2);
+                Vector3D f = physics.calculateGravityAndElectrostaticForce(p1, p2);
                 fx += f.getX();
                 fy += f.getY();
                 fz += f.getZ();
@@ -191,7 +197,7 @@ public class SimulationEngine {
     }
 
     private void computeForcesBarnesHut() {
-        BarnesHutTree tree = new BarnesHutTree(particles, SimulationConfig.BARNES_HUT_THETA);
+        BarnesHutTree tree = new BarnesHutTree(particles, params, physics);
         int n = particles.size();
         java.util.stream.IntStream.range(0, n).parallel().forEach(i -> {
             Particle p = particles.get(i);
@@ -218,7 +224,7 @@ public class SimulationEngine {
             localCandidates.clear();
 
             double ownSpeed = p1.getVelocity().magnitude();
-            double queryRadius = reach[i] + maxReach + ownSpeed * SimulationConfig.DT;
+            double queryRadius = reach[i] + maxReach + ownSpeed * params.dt;
 
             collisionGrid.queryNeighbors(p1.getPosition(), queryRadius, localCandidates);
 
@@ -250,7 +256,7 @@ public class SimulationEngine {
 
         maxReach = 0.0;
         for (int i = 0; i < n; i++) {
-            reach[i] = Physics.getCaptureReach(particles.get(i));
+            reach[i] = physics.getCaptureReach(particles.get(i));
             maxReach = Math.max(maxReach, reach[i]);
         }
 
@@ -268,7 +274,7 @@ public class SimulationEngine {
     }
 
     private void processCollision(Particle p1, Particle p2) {
-        if (!Physics.checkCollision(p1, p2)) return;
+        if (!physics.checkCollision(p1, p2)) return;
 
         // Lock ordinati per ID per prevenire deadlock
         Particle firstLock  = (p1.getId() < p2.getId()) ? p1 : p2;
@@ -280,7 +286,7 @@ public class SimulationEngine {
                 if (!p1.isAlive() || !p2.isAlive()) return;
 
                 // Verifica che stiano ANCORA collidendo ora che abbiamo lo stato bloccato.
-                if (!Physics.checkCollision(p1, p2)) return;
+                if (!physics.checkCollision(p1, p2)) return;
                  
                  // Valutazione esito collisione a tre vie
                  // Forza la fusione se la velocità relativa è troppo bassa per sostenere un rimbalzo stabile
@@ -290,18 +296,18 @@ public class SimulationEngine {
                 double sumRadii = p1.getRadius() + p2.getRadius();
                 
                 if (sumRadii > 0) {
-                    double courantNumber = (relSpeed * SimulationConfig.DT) / sumRadii;
+                    double courantNumber = (relSpeed * params.dt) / sumRadii;
                     
                     metrics.updateMaxCourant(courantNumber);
                     
-                    if (courantNumber > 0.5 && SimulationConfig.LOG_BOUNCE_EVENTS) {
+                    if (courantNumber > 0.5) {
                     	logger.log(String.format("[ATTENZIONE] Numero di Courant elevato: C=%.2f (v_rel=%.1f m/s, DT=%.1fs, r_sum=%.1em)",
-                            courantNumber, relSpeed, SimulationConfig.DT, sumRadii));
+                            courantNumber, relSpeed, params.dt, sumRadii));
                     }
                 }
                 //
                 
-                CollisionResult result = (relSpeed <3) ? CollisionResult.MERGE : Physics.evaluateCollision(p1, p2);
+                CollisionResult result = (relSpeed <3) ? CollisionResult.MERGE : physics.evaluateCollision(p1, p2);
                 switch (result) {
                     case MERGE:
                         handleAccretion(p1, p2);
@@ -327,11 +333,11 @@ public class SimulationEngine {
         boolean wasAggregated = p1.isAggregated() || p2.isAggregated();
         boolean bothAggregated = p1.isAggregated() && p2.isAggregated();
 
-        Physics.mergeParticles(winner, loser);
+        physics.mergeParticles(winner, loser);
 
         long mergeId = metrics.recordMerge();
 
-        if (SimulationConfig.LOG_ACCRETION_EVENTS && bothAggregated) {
+        if (bothAggregated) {
         	logger.log(String.format(
         			"[t=%12.1fs] IMPATTO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)",
         			metrics.getSimulationTime(), mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
@@ -353,31 +359,27 @@ public class SimulationEngine {
         long fragId = metrics.recordFragmentation();
 
         // Genera i frammenti
-        List<Particle> fragments = Physics.fragmentParticles(p1, p2);
+        List<Particle> fragments = physics.fragmentParticles(p1, p2);
 
         newFragmentsBuffer.addAll(fragments);
 
-        if (SimulationConfig.LOG_BOUNCE_EVENTS) { // o flag equivalente per logging
-            double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-            logger.log(String.format(
-                "[t=%12.1fs] FRAMMENTAZIONE #%d: #%d (m=%.2e kg) + #%d (m=%.2e kg) -> Generati %d frammenti [v_rel=%.1f m/s]",
-                metrics.getSimulationTime(), fragId, p1.getId(), p1.getMass(), p2.getId(), p2.getMass(), fragments.size(), relSpeed
-            ));
-        }
+        double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
+        logger.log(String.format(
+            "[t=%12.1fs] FRAMMENTAZIONE #%d: #%d (m=%.2e kg) + #%d (m=%.2e kg) -> Generati %d frammenti [v_rel=%.1f m/s]",
+            metrics.getSimulationTime(), fragId, p1.getId(), p1.getMass(), p2.getId(), p2.getMass(), fragments.size(), relSpeed
+        ));
     }
     
     private void handleBounce(Particle p1, Particle p2) {
-        Physics.resolveBounce(p1, p2, 0.5);
+    	physics.resolveBounce(p1, p2, 0.5);
         long bounceId = metrics.recordBounce();
 
-        if (SimulationConfig.LOG_BOUNCE_EVENTS) {
-            double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-            double dist = p1.getPosition().distanceTo(p2.getPosition());
-            logger.log(String.format(
-                "[t=%12.1fs] RIMBALZO #%d: #%d <-> #%d [v_rel=%.1f m/s, dist=%.1f m]",
-                metrics.getSimulationTime(), bounceId, p1.getId(), p2.getId(), relSpeed, dist
-            ));
-        }
+        double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
+        double dist = p1.getPosition().distanceTo(p2.getPosition());
+        logger.log(String.format(
+        		"[t=%12.1fs] RIMBALZO #%d: #%d <-> #%d [v_rel=%.1f m/s, dist=%.1f m]",
+        		metrics.getSimulationTime(), bounceId, p1.getId(), p2.getId(), relSpeed, dist
+        ));
     }
 
     private void checkParticleBoundaries(Particle p, double starRadius, double maxSystemRadius) {
@@ -389,19 +391,15 @@ public class SimulationEngine {
         if (distFromCenter <= starRadius) {
             p.setAlive(false);
             metrics.recordStarFall();
-            if (SimulationConfig.LOG_ACCRETION_EVENTS) {
-            	logger.log(String.format("[t=%12.1fs] CADUTA NELLA STELLA: Particella #%d (m=%.2e kg)", metrics.getSimulationTime(), p.getId(), p.getMass()));
-            }
+            logger.log(String.format("[t=%12.1fs] CADUTA NELLA STELLA: Particella #%d (m=%.2e kg)", metrics.getSimulationTime(), p.getId(), p.getMass()));
         }
         // ESPULSIONE DAL SISTEMA SOLARE
         else if (distFromCenter > maxSystemRadius) {
-            double vEsc = Math.sqrt((2.0 * PhysicsConstants.G * SimulationConfig.STAR_MASS) / distFromCenter);
+            double vEsc = Math.sqrt((2.0 * PhysicsConstants.G * params.centralStarMass) / distFromCenter);
             if (p.getVelocity().magnitude() > vEsc) {
                 p.setAlive(false);
                 metrics.recordEscape();
-                if (SimulationConfig.LOG_ACCRETION_EVENTS) {
-                	logger.log(String.format("[t=%12.1fs] FUGA INTERSTELLARE: Particella #%d schizzata via dal sistema!", metrics.getSimulationTime(), p.getId()));
-                }
+                logger.log(String.format("[t=%12.1fs] FUGA INTERSTELLARE: Particella #%d schizzata via dal sistema!", metrics.getSimulationTime(), p.getId()));
             }
         }
     }
@@ -419,8 +417,7 @@ public class SimulationEngine {
             if (p.isAlive()) {
                 aliveCount++;
                 totalPotentialEnergy += p.getPotentialEnergy();
-                totalStarPotentialEnergy += Physics.calculateCentralStarPotentialEnergy(p);
-
+                totalStarPotentialEnergy += physics.calculateCentralStarPotentialEnergy(p);
                 
                 // Calcolo energia cinetica: 0.5 * m * v^2
                 // v^2 è la norma al quadrato del vettore velocità (vx*vx + vy*vy + vz*vz)

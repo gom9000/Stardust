@@ -1,0 +1,47 @@
+# Stella centrale
+centralStarMass=1.989e30            # kg
+centralStarRadius=6.963e8           # m
+centralStarDensity=1408.0           # kg/m^3
+
+# Disco iniziale
+n=15000                             # numero di particelle
+baseParticleMassMin=2e19            # kg
+baseParticleMassMax=2e21            # kg
+diskInnerRadiusAU=0.3               # AU
+diskOuterRadiusAU=0.7               # AU
+initialVelocityDispersion=0.005     # frazione della velocità orbitale kepleriana
+initialDustDensity=100.0            # kg/m^3
+initialMaxCharge=1e-9               # C
+massPowerLawIndex=1.2               # esponente distribuzione a potenza delle masse
+
+# Gravità
+dt=300.0                            # secondi per step
+softening=1.0                       # m (softening di Plummer)
+useParallelForces=true
+useBarnesHut=true
+barnesHutTheta=0.6                  # angolo di apertura Barnes-Hut
+barnesHutThreshold=400              # N minimo per attivare Barnes-Hut
+activeGravityModel=NEWTONIAN_CLAMPED  # NEWTONIAN_CLAMPED oppure PLUMMER_SOFTENED
+enableElectrostaticForce=false
+
+# Collisioni
+hillCaptureFraction=0.20            # frazione del raggio di Hill usata come raggio di cattura
+hillAmplification=3.0               # fattore di amplificazione del raggio di Hill
+gravitationalCaptureMultiplier=1.0  # moltiplicatore sulla velocità di fuga per la soglia di fusione
+dustCohesionThreshold=2.5           # m/s, soglia minima di fusione indipendente dalla velocità di fuga
+fragmentationMultiplier=2.0         # moltiplicatore sulla soglia di fusione per la soglia di frammentazione
+
+# Drag / Gas
+dragReferenceDensity=3000.0         # kg/m^3, densità di riferimento per il calcolo del drag
+gasDensityBase=1.4e-9               # kg/m^3, densità base del gas nel disco
+gasProfileExponent=-2               # esponente del profilo radiale di densità del gas
+
+# Rendering / Diagnostica
+densityRingWidthAU=0.005            # AU, larghezza degli anelli per l'analisi della densità
+topOrbitsCount=3                    # numero di corpi più massicci mostrati con orbita ed etichetta
+gapMinClearingRatio=0.8             # frazione minima di svuotamento per disegnare un solco radiale
+
+# Sessione / I/O
+logSummaryEveryNSteps=100           # ogni quanti step scrivere la riga STATO nel log
+fps=15                              # frame al secondo del rendering
+autosaveInterval=300                # secondi tra un autosave e l'altro (0 = disattivato)

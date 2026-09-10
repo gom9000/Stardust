@@ -7,8 +7,8 @@ import java.io.File;
 
 import javax.swing.JFrame;
 
-import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.SimulationEngine;
+import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.io.SimulationPaths;
 
 
@@ -21,19 +21,21 @@ implements ActionListener
     private final SimulationPanel panel;
     private final SimulationEngine engine;
     private final SimulationPaths paths;
+    private final SimulationParams params;
 
     private long lastScreenshotStep = -1;
     private long lastFpsCheckTime = System.currentTimeMillis();
     private int frameCount = 0;
 
 
-    public RenderActionListener(JFrame frame, String baseTitle, SimulationPanel panel, SimulationEngine engine, SimulationPaths paths)
+    public RenderActionListener(JFrame frame, String baseTitle, SimulationPanel panel, SimulationEngine engine, SimulationPaths paths, SimulationParams params)
     {
         this.frame = frame;
         this.baseTitle = baseTitle;
         this.panel = panel;
         this.engine = engine;
         this.paths = paths;
+        this.params = params;
     }
 
 
@@ -42,7 +44,7 @@ implements ActionListener
     {
         // Update "vbeloce" dello snapshot grafico e repaint
         synchronized (engine.getParticles()) {
-            panel.updateSnapshot(engine.getParticles(), engine.getMetrics().getSimulationTime(), SimulationConfig.DT);
+            panel.updateSnapshot(engine.getParticles(), engine.getMetrics().getSimulationTime(), params.dt);
         }
         panel.repaint();
 

@@ -4,34 +4,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.gommagomma.stardust.PhysicsConstants;
-import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.physics.Physics;
 
 public class BarnesHutTree {
-
     private static final int MAX_DEPTH = 40;
 
+    private final SimulationParams params;
+    private final Physics physics;
     private final Node root;
     private final double theta;
     private final double thetaSq;
 
-    public BarnesHutTree(List<Particle> particles, double theta) {
+    public BarnesHutTree(List<Particle> particles, SimulationParams params, Physics physics) {
         if (particles == null || particles.isEmpty()) {
             throw new IllegalArgumentException("BarnesHutTree richiede almeno una particella");
         }
 
-        if (!Double.isFinite(theta) || theta < 0.0) {
-            throw new IllegalArgumentException("Theta Barnes-Hut non valido: " + theta);
-        }
-
-        this.theta = theta;
+        this.params = params;
+        this.physics = physics;
+        this.theta = params.barnesHutTheta;
         this.thetaSq = theta * theta;
 
         double[] bounds = computeBounds(particles);
 
-        this.root = new Node(bounds[0], bounds[1], bounds[2], bounds[3]);
+        this.root = new Node(bounds[0], bounds[1], bounds[2], bounds[3], params, physics);
 
         for (Particle p : particles) {
             if (p != null && p.isAlive()) {
@@ -125,7 +124,8 @@ public class BarnesHutTree {
     }
 
     private static class Node {
-
+    	private final SimulationParams params;
+    	private final Physics physics;
         final double cx;
         final double cy;
         final double cz;
@@ -143,11 +143,13 @@ public class BarnesHutTree {
         double comY;
         double comZ;
 
-        Node(double cx, double cy, double cz, double halfSize) {
+        Node(double cx, double cy, double cz, double halfSize, SimulationParams params, Physics physics) {
             this.cx = cx;
             this.cy = cy;
             this.cz = cz;
             this.halfSize = halfSize;
+            this.params = params;
+            this.physics = physics;
         }
 
         boolean isLeaf() {
@@ -201,7 +203,7 @@ public class BarnesHutTree {
                 double oy = ((i & 2) == 0) ? -q : q;
                 double oz = ((i & 4) == 0) ? -q : q;
 
-                children[i] = new Node(cx + ox, cy + oy, cz + oz, q);
+                children[i] = new Node(cx + ox, cy + oy, cz + oz, q, params, physics);
             }
         }
 
@@ -237,7 +239,7 @@ public class BarnesHutTree {
                         Vector3D pos = p.getPosition();
 
                         totalMass += m;
-                        if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
+                        if (params.enableElectrostaticForce) {
                             totalCharge += p.getCharge();
                         }
 
@@ -250,7 +252,7 @@ public class BarnesHutTree {
                     Vector3D pos = single.getPosition();
 
                     totalMass = m;
-                    if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
+                    if (params.enableElectrostaticForce) {
                         totalCharge = single.getCharge();
                     }
 
@@ -283,7 +285,7 @@ public class BarnesHutTree {
         }
 
         void accumulateForce(Particle target, double thetaSq, ForceAccumulator acc, boolean containsTarget) {
-            if (totalMass == 0.0 && (!SimulationConfig.ENABLE_ELECTROSTATIC_FORCE || totalCharge == 0.0)) {
+            if (totalMass == 0.0 && (!params.enableElectrostaticForce || totalCharge == 0.0)) {
                 return;
             }
 
@@ -315,14 +317,14 @@ public class BarnesHutTree {
             double size = halfSize * 2.0;
 
             if (!containsTarget && distSq > 0.0 && (size * size / distSq) < thetaSq) {
-                double softeningSq = SimulationConfig.SOFTENING * SimulationConfig.SOFTENING;
+                double softeningSq = params.softening * params.softening;
                 double effectiveDistSq = distSq + softeningSq;
                 double effectiveDist = Math.sqrt(effectiveDistSq);
 
                 double gFactor = (PhysicsConstants.G * target.getMass() * totalMass) / (effectiveDistSq * effectiveDist);
                 double cFactor = 0.0;
 
-                if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
+                if (params.enableElectrostaticForce) {
                     cFactor = (PhysicsConstants.K_COULOMB * target.getCharge() * totalCharge) / (effectiveDistSq * effectiveDist);
                 }
 
@@ -332,7 +334,7 @@ public class BarnesHutTree {
                 double gPotential = -(PhysicsConstants.G * target.getMass() * totalMass) / effectiveDist;
                 double cPotential = 0.0;
 
-                if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
+                if (params.enableElectrostaticForce) {
                     cPotential = (PhysicsConstants.K_COULOMB * target.getCharge() * totalCharge) / effectiveDist;
                 }
 
@@ -351,7 +353,7 @@ public class BarnesHutTree {
             for (int i = 0; i < children.length; i++) {
                 Node child = children[i];
 
-                if (child.totalMass == 0.0 && (!SimulationConfig.ENABLE_ELECTROSTATIC_FORCE || child.totalCharge == 0.0)) {
+                if (child.totalMass == 0.0 && (!params.enableElectrostaticForce || child.totalCharge == 0.0)) {
                     continue;
                 }
 
@@ -361,7 +363,7 @@ public class BarnesHutTree {
         }
 
         private void addDirect(Particle target, Particle other, ForceAccumulator acc) {
-            Vector3D f = Physics.calculateGravityAndElectrostaticForce(target, other);
+            Vector3D f = physics.calculateGravityAndElectrostaticForce(target, other);
             acc.add(f.getX(), f.getY(), f.getZ());
 
             double dist = target.getPosition().distanceTo(other.getPosition());
@@ -369,7 +371,7 @@ public class BarnesHutTree {
                 double gPotential = -(PhysicsConstants.G * target.getMass() * other.getMass()) / dist;
                 double cPotential = 0.0;
 
-                if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
+                if (params.enableElectrostaticForce) {
                     cPotential = (PhysicsConstants.K_COULOMB * target.getCharge() * other.getCharge()) / dist;
                 }
 

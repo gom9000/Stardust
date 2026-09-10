@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.gommagomma.stardust.PhysicsConstants;
-import net.gommagomma.stardust.SimulationConfig;
+import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.Stardust;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -14,11 +14,11 @@ public class SolarSystemDemo
 	public static void main(String[] args) throws Exception
     {
         Stardust stardust = new Stardust("solar-system", "Stardust — Sistema Solare con Satelliti Principali");
-        stardust.setParticles(createSolarSystem());
+        stardust.setParticles(createSolarSystem(stardust.getContext()));
         stardust.start();
     }
 
-    private static List<Particle> createSolarSystem()
+    private static List<Particle> createSolarSystem(SimulationParams params)
     {
         List<Particle> particles = new ArrayList<>();
         double theta = 0.0;
@@ -41,7 +41,7 @@ public class SolarSystemDemo
             double density = planetsData[i][2];
 
             // 1. Creazione del pianeta madre
-            Particle planet = createProtoplanet(rAU, theta, mass, 0.0, density);
+            Particle planet = Stardust.createProtoplanet(params, rAU, theta, mass, 0.0, density);
             particles.add(planet);
 
             // Calcolo posizione e velocità cartesiane del pianeta per agganciare i satelliti
@@ -49,7 +49,7 @@ public class SolarSystemDemo
             double planetX = planetR * Math.cos(theta);
             double planetY = planetR * Math.sin(theta);
 
-            double vPlanet = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / planetR);
+            double vPlanet = Math.sqrt(PhysicsConstants.G * params.centralStarMass / planetR);
             double vPlanetX = -vPlanet * Math.sin(theta);
             double vPlanetY = vPlanet * Math.cos(theta);
 
@@ -93,16 +93,5 @@ public class SolarSystemDemo
         Vector3D satVelocity = new Vector3D(satVx, satVy, 0.0);
 
         particles.add(new Particle(satPosition, satVelocity, satMass, 0.0, satDensity));
-    }
-
-    private static Particle createProtoplanet(double rAU, double theta, double mass, double charge, double density)
-    {
-        double r = rAU * PhysicsConstants.AU;
-        Vector3D position = new Vector3D(r * Math.cos(theta), r * Math.sin(theta), 0.0);
-
-        double v = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / r);
-        Vector3D velocity = new Vector3D(-v * Math.sin(theta), v * Math.cos(theta), 0.0);
-
-        return new Particle(position, velocity, mass, charge, density);
     }
 }

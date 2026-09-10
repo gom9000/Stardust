@@ -26,6 +26,7 @@ public class Stardust
     public static final String WINDOW_TITLE = "Stardust — Accrescimento Gravitazionale Planetesimale";
 
     private final SimulationPaths paths;
+    private final SimulationParams params;
     private final RunLogger eventsLogger;
     private final RunLogger runsLogger;
     private SimulationEngine engine;
@@ -42,7 +43,7 @@ public class Stardust
                 : "disk-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
 
         Stardust stardust = new Stardust(simulationId);
-        stardust.setParticles(createProtoplanetaryDisk());
+        stardust.setParticles(createProtoplanetaryDisk(stardust.getContext()));
         stardust.start();
     }
 
@@ -57,13 +58,14 @@ public class Stardust
     throws IOException
     {
         this.paths = new SimulationPaths(simulationId);
+        this.params = new SimulationParams(paths);
         this.eventsLogger = new RunLogger(paths.eventsLogFile);
         this.runsLogger = new RunLogger(paths.runsLogFile);
         this.windowTitle = windowTitle;
     }
 
-    public SimulationConfig getContext() {
-        return null;
+    public SimulationParams getContext() {
+        return params;
     }
     public void setParticles(List<Particle> particles) {
         this.particles = particles;
@@ -74,7 +76,7 @@ public class Stardust
         engine = initEngine();
         runsLogger.log(String.format("START wall=%s simTime=%.1f", LocalDateTime.now(), engine.getMetrics().getSimulationTime()));
         engineThread = startEngineThread();
-        SimulationPanel panel = new SimulationPanel(engine);
+        SimulationPanel panel = new SimulationPanel(engine, params);
         JFrame frame = setupWindow(panel);
 
         startRenderLoop(frame, panel);
@@ -87,7 +89,7 @@ public class Stardust
             try {
                 Savepoint.SavepointState state = Savepoint.load(paths.savepointFile.toString());
                 System.out.println("Savepoint ripristinato.");
-                return new SimulationEngine(state.particles, eventsLogger, state.metrics);
+                return new SimulationEngine(state.particles, eventsLogger, state.metrics, params);
             } catch (IOException e) {
                 System.err.println("Impossibile ripristinare il savepoint (" + e.getMessage() + "), generazione di un nuovo disco.");
             }
@@ -99,7 +101,7 @@ public class Stardust
             throw new IllegalStateException("Nessuna lista di particelle impostata.");
         }
 
-        return new SimulationEngine(particles, eventsLogger);
+        return new SimulationEngine(particles, eventsLogger, params);
     }
 
     private Thread startEngineThread()
@@ -115,6 +117,7 @@ public class Stardust
         JFrame frame = new JFrame(windowTitle);
         frame.add(panel);
         frame.setSize(800, 800);
+        frame.setLocationRelativeTo(null);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         frame.addWindowListener(new WindowAdapter() {
@@ -140,15 +143,15 @@ public class Stardust
 
     private void startRenderLoop(JFrame frame, SimulationPanel panel)
     {
-        RenderActionListener listener = new RenderActionListener(frame, windowTitle, panel, engine, paths);
-        Timer renderTimer = new Timer(1000 / SimulationConfig.FPS, listener);
+        RenderActionListener listener = new RenderActionListener(frame, windowTitle, panel, engine, paths, params);
+        Timer renderTimer = new Timer(1000 / params.fps, listener);
         renderTimer.start();
     }
 
     private void startAutosaveLoop()
     {
-        if (SimulationConfig.AUTOSAVE_INTERVAL_SECONDS > 0) {
-            Timer autosaveTimer = new Timer(SimulationConfig.AUTOSAVE_INTERVAL_SECONDS * 1000, e ->
+        if (params.autosaveInterval > 0) {
+            Timer autosaveTimer = new Timer(params.autosaveInterval * 1000, e ->
                 new Thread(this::saveSavepoint, "autosave-savepoint-thread").start());
             autosaveTimer.start();
         }
@@ -164,20 +167,20 @@ public class Stardust
     }
 
     // Generazione del disco
-    private static List<Particle> createProtoplanetaryDisk()
+    private static List<Particle> createProtoplanetaryDisk(SimulationParams params)
     {
         List<Particle> particles = new ArrayList<>();
         Random rnd = new Random();
 
         //particles.add(createProtoplanet(0.4, Math.PI, 1e25, 0.0, 3000.0));
 
-        double exp = 1.0 - SimulationConfig.MASS_POWER_LAW_INDEX;
-        double mMinExp = Math.pow(SimulationConfig.BASE_PARTICLE_MASS_MIN, exp);
-        double mMaxExp = Math.pow(SimulationConfig.BASE_PARTICLE_MASS_MAX, exp);
-        double r2Min = SimulationConfig.DISK_INNER_RADIUS * SimulationConfig.DISK_INNER_RADIUS;
-        double r2Max = SimulationConfig.DISK_OUTER_RADIUS * SimulationConfig.DISK_OUTER_RADIUS;
+        double exp = 1.0 - params.massPowerLawIndex;
+        double mMinExp = Math.pow(params.baseParticleMassMin, exp);
+        double mMaxExp = Math.pow(params.baseParticleMassMax, exp);
+        double r2Min = params.diskInnerRadius * params.diskInnerRadius;
+        double r2Max = params.diskOuterRadius * params.diskOuterRadius;
 
-        for (int ii = 0; ii < SimulationConfig.N; ii++)
+        for (int ii = 0; ii < params.n; ii++)
         {
             double r = Math.sqrt(r2Min + rnd.nextDouble() * (r2Max - r2Min));
             double theta = rnd.nextDouble() * 2 * Math.PI;
@@ -186,32 +189,32 @@ public class Stardust
             double y = r * Math.sin(theta);
             double z = (rnd.nextDouble() - 0.5) * r * 0.01;
 
-            double v = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / r);
+            double v = Math.sqrt(PhysicsConstants.G * params.centralStarMass / r);
             double vx = -v * Math.sin(theta);
             double vy =  v * Math.cos(theta);
             double vz = rnd.nextDouble() - 0.5;
 
-            double dispersion = SimulationConfig.INITIAL_VELOCITY_DISPERSION * v;
+            double dispersion = params.initialVelocityDispersion * v;
             vx += (rnd.nextDouble() - 0.5) * dispersion;
             vy += (rnd.nextDouble() - 0.5) * dispersion;
             vz *= dispersion;
 
             double u = rnd.nextDouble();
             double mass = Math.pow(mMinExp + u * (mMaxExp - mMinExp), 1.0 / exp);
-            double charge = (rnd.nextBoolean() ? 1 : -1) * rnd.nextDouble() * SimulationConfig.MAX_INITIAL_CHARGE;
+            double charge = (rnd.nextBoolean() ? 1 : -1) * rnd.nextDouble() * params.initialMaxCharge;
 
-            particles.add(new Particle(new Vector3D(x, y, z), new Vector3D(vx, vy, vz), mass, charge, SimulationConfig.INITIAL_DUST_DENSITY));
+            particles.add(new Particle(new Vector3D(x, y, z), new Vector3D(vx, vy, vz), mass, charge, params.initialDustDensity));
         }
 
         return particles;
     }
 
-    private static Particle createProtoplanet(double rAU, double theta, double mass, double charge, double density)
+    public static Particle createProtoplanet(SimulationParams params, double rAU, double theta, double mass, double charge, double density)
     {
         double r = rAU * PhysicsConstants.AU;
         Vector3D position = new Vector3D(r * Math.cos(theta), r * Math.sin(theta), 0.0);
 
-        double v = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / r);
+        double v = Math.sqrt(PhysicsConstants.G * params.centralStarMass / r);
         Vector3D velocity = new Vector3D(-v * Math.sin(theta), v * Math.cos(theta), 0.0);
 
         return new Particle(position, velocity, mass, charge, density);
