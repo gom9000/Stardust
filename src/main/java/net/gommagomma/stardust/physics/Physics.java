@@ -3,6 +3,7 @@ package net.gommagomma.stardust.physics;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -50,7 +51,7 @@ public class Physics
     public static double calculateCentralStarPotentialEnergy(Particle p) {
         double r = p.getPosition().magnitude();
         if (r <= 0.0) return 0.0;
-        return -(SimulationConfig.G * SimulationConfig.STAR_MASS * p.getMass()) / r;
+        return -(PhysicsConstants.G * SimulationConfig.STAR_MASS * p.getMass()) / r;
     }
     
     /**
@@ -71,7 +72,7 @@ public class Physics
         double effectiveDistSq = distanceSquared + epsSq;
         double effectiveDist = Math.sqrt(effectiveDistSq);
 
-        double forceFactor = (SimulationConfig.K_COULOMB * q1 * q2) / (effectiveDistSq * effectiveDist);
+        double forceFactor = (PhysicsConstants.K_COULOMB * q1 * q2) / (effectiveDistSq * effectiveDist);
 
         return diff.multiply(-forceFactor);
     }
@@ -94,18 +95,18 @@ public class Physics
 
         // 1. PARAMETRI TERMODINAMICI DEL DISCO DI GAS
         double tempRef = 280.0; // Kelvin a 1 AU
-        double temperature = tempRef * Math.pow(r3D / SimulationConfig.AU, -0.5);
+        double temperature = tempRef * Math.pow(r3D / PhysicsConstants.AU, -0.5);
 
         double kB = 1.380649e-23;
         double mH2 = 3.34e-27; // Massa molecola d'idrogeno (kg)
         double soundSpeed = Math.sqrt((kB * temperature) / mH2);
 
-        double omegaK = Math.sqrt((SimulationConfig.G * SimulationConfig.STAR_MASS) / (r3D * r3D * r3D));
+        double omegaK = Math.sqrt((PhysicsConstants.G * SimulationConfig.STAR_MASS) / (r3D * r3D * r3D));
         double scaleHeight = soundSpeed / omegaK;
 
         // 2. PROFILO DI DENSITÀ DEL GAS 3D
         double midplaneGasDensity = SimulationConfig.GAS_DENSITY_BASE * 
-                Math.pow(r3D / SimulationConfig.AU, SimulationConfig.GAS_PROFILE_EXPONENT);
+                Math.pow(r3D / PhysicsConstants.AU, SimulationConfig.GAS_PROFILE_EXPONENT);
         
         double localGasDensity = midplaneGasDensity * Math.exp(-(z * z) / (2.0 * scaleHeight * scaleHeight));
 
@@ -156,7 +157,7 @@ public class Physics
 
         // Energia Potenziale con la Stella Centrale
         double rStar = p.getPosition().magnitude();
-        double potentialStar = (rStar > 0) ? -(SimulationConfig.G * SimulationConfig.STAR_MASS * p.getMass()) / rStar : 0.0;
+        double potentialStar = (rStar > 0) ? -(PhysicsConstants.G * SimulationConfig.STAR_MASS * p.getMass()) / rStar : 0.0;
 
         // Energia Potenziale Mutua con le altre (divisa per 2 per evitare il doppio conteggio delle coppie)
         double potentialMutual = 0.0;
@@ -164,7 +165,7 @@ public class Physics
             if (p2 == p || !p2.isAlive()) continue;
             double dist = p.getPosition().distanceTo(p2.getPosition());
             if (dist > 0) {
-                potentialMutual -= (SimulationConfig.G * p.getMass() * p2.getMass()) / dist;
+                potentialMutual -= (PhysicsConstants.G * p.getMass() * p2.getMass()) / dist;
             }
         }
         potentialMutual *= 0.5;
@@ -269,7 +270,7 @@ public class Physics
         double distance = Math.max(p1.getPosition().distanceTo(p2.getPosition()), captureRadiusSum);
 
         // Velocità di fuga reciproca dal punto di impatto
-        double escapeVelocity = Math.sqrt((2.0 * SimulationConfig.G * totalMass) / distance);
+        double escapeVelocity = Math.sqrt((2.0 * PhysicsConstants.G * totalMass) / distance);
 
         // Soglia di FUSIONE / CATTURA
         double captureThreshold = escapeVelocity * SimulationConfig.GRAVITATIONAL_CAPTURE_MULTIPLIER;

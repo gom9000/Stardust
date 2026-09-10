@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -31,7 +32,7 @@ class MultiBodyOrbitIntegrationTest {
     private static double mutualPotential(Particle p1, Particle p2) {
         double dist = p1.getPosition().distanceTo(p2.getPosition());
         if (dist <= 0) return 0.0;
-        return -(SimulationConfig.G * p1.getMass() * p2.getMass()) / dist;
+        return -(PhysicsConstants.G * p1.getMass() * p2.getMass()) / dist;
     }
 
     private static double kinetic(Particle p) {
@@ -79,11 +80,11 @@ class MultiBodyOrbitIntegrationTest {
         // reciproca attrazione è calcolata (non ignorata, esercitando davvero il pattern N-corpi),
         // ma è trascurabile rispetto a quella della stella, quindi il sistema resta ben educato
         // (niente incontri ravvicinati/instabilità) mentre il codice di accumulo N-corpi viene comunque testato.
-        double r1 = SimulationConfig.AU;
-        double r2 = 1.6 * SimulationConfig.AU;
+        double r1 = PhysicsConstants.AU;
+        double r2 = 1.6 * PhysicsConstants.AU;
 
-        double v1 = Math.sqrt((SimulationConfig.G * SimulationConfig.STAR_MASS) / r1);
-        double v2 = Math.sqrt((SimulationConfig.G * SimulationConfig.STAR_MASS) / r2);
+        double v1 = Math.sqrt((PhysicsConstants.G * SimulationConfig.STAR_MASS) / r1);
+        double v2 = Math.sqrt((PhysicsConstants.G * SimulationConfig.STAR_MASS) / r2);
 
         // Masse piccole rispetto alla stella E piccole a sufficienza da rendere la mutua attrazione
         // fisicamente trascurabile per la stabilità del test (ma comunque calcolata ad ogni step).
@@ -92,7 +93,7 @@ class MultiBodyOrbitIntegrationTest {
 
         List<Particle> system = List.of(planetA, planetB);
 
-        double period1 = 2.0 * Math.PI * Math.sqrt(Math.pow(r1, 3) / (SimulationConfig.G * SimulationConfig.STAR_MASS));
+        double period1 = 2.0 * Math.PI * Math.sqrt(Math.pow(r1, 3) / (PhysicsConstants.G * SimulationConfig.STAR_MASS));
         double dt = SimulationConfig.DT;
         int steps = (int) Math.round(period1 / dt); // un periodo orbitale del corpo più interno
 
@@ -154,14 +155,14 @@ class MultiBodyOrbitIntegrationTest {
 
         Particle star = new Particle(new Vector3D(0, 0, 0), new Vector3D(0, 0, 0), starMass, 0.0, 1408.0);
 
-        double vPlanet = Math.sqrt(SimulationConfig.G * starMass / starPlanetDist);
+        double vPlanet = Math.sqrt(PhysicsConstants.G * starMass / starPlanetDist);
         Particle planet = new Particle(
                 new Vector3D(starPlanetDist, 0, 0),
                 new Vector3D(0, vPlanet, 0),
                 planetMass, 0.0, 5500.0
         );
 
-        double vMoonRel = Math.sqrt(SimulationConfig.G * planetMass / planetMoonDist);
+        double vMoonRel = Math.sqrt(PhysicsConstants.G * planetMass / planetMoonDist);
         Particle satellite = new Particle(
                 new Vector3D(starPlanetDist + planetMoonDist, 0, 0),
                 new Vector3D(0, vPlanet + vMoonRel, 0),
@@ -174,7 +175,7 @@ class MultiBodyOrbitIntegrationTest {
         // Copriamo 2 periodi orbitali COMPLETI del satellite attorno al pianeta (non una frazione
         // arbitraria): un'orbita che si "apre" per un bug o per instabilità numerica emerge chiaramente
         // solo osservando l'intero ciclo, non un pezzo scelto a caso.
-        double moonPeriod = 2.0 * Math.PI * Math.sqrt(Math.pow(planetMoonDist, 3) / (SimulationConfig.G * planetMass));
+        double moonPeriod = 2.0 * Math.PI * Math.sqrt(Math.pow(planetMoonDist, 3) / (PhysicsConstants.G * planetMass));
         double dt = 300.0;
         int steps = (int) Math.round(1000.0 * moonPeriod / dt);
 

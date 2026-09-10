@@ -3,6 +3,7 @@ package net.gommagomma.stardust;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.gommagomma.stardust.io.RunLogger;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.physics.Physics;
@@ -13,6 +14,7 @@ import net.gommagomma.stardust.physics.collision.CollisionResult;
 public class SimulationEngine {
     private final List<Particle> particles;
     private final SimulationMetrics metrics;
+    private final RunLogger logger;
     private volatile boolean running = false;
 
     private static final ThreadLocal<List<Particle>> LOCAL_CANDIDATES = ThreadLocal.withInitial(() -> new ArrayList<>(128));
@@ -34,15 +36,17 @@ public class SimulationEngine {
     public void togglePause() { this.paused = !this.paused; }
     
     // Costruttore per una nuova simulazione
-    public SimulationEngine(List<Particle> particles) {
+    public SimulationEngine(List<Particle> particles, RunLogger logger) {
         this.particles = particles;
         this.metrics = new SimulationMetrics();
+        this.logger = logger;
     }
 
     // Costruttore di ripristino da savepoint
-    public SimulationEngine(List<Particle> particles, SimulationMetrics metrics)
+    public SimulationEngine(List<Particle> particles, RunLogger logger, SimulationMetrics metrics)
     {
         this.particles = particles;
+        this.logger = logger;
         this.metrics = metrics;
     }
 
@@ -149,7 +153,7 @@ public class SimulationEngine {
                 
                 double dist = p1.getPosition().distanceTo(p2.getPosition());
                 if (dist > 0) {
-                    double pot = -(SimulationConfig.G * p1.getMass() * p2.getMass()) / dist;
+                    double pot = -(PhysicsConstants.G * p1.getMass() * p2.getMass()) / dist;
                     p1.addPotentialEnergy(pot);
                     p2.addPotentialEnergy(pot);
                 }
@@ -177,7 +181,7 @@ public class SimulationEngine {
                 // calcolo del potenziale
                 double dist = p1.getPosition().distanceTo(p2.getPosition());
                 if (dist > 0) {
-                    potentialSum -= (SimulationConfig.G * p1.getMass() * p2.getMass()) / dist;
+                    potentialSum -= (PhysicsConstants.G * p1.getMass() * p2.getMass()) / dist;
                 }
             }
 
@@ -291,8 +295,8 @@ public class SimulationEngine {
                     metrics.updateMaxCourant(courantNumber);
                     
                     if (courantNumber > 0.5 && SimulationConfig.LOG_BOUNCE_EVENTS) {
-                        System.out.printf("[ATTENZIONE] Numero di Courant elevato: C=%.2f (v_rel=%.1f m/s, DT=%.1fs, r_sum=%.1em)%n",
-                            courantNumber, relSpeed, SimulationConfig.DT, sumRadii);
+                    	logger.log(String.format("[ATTENZIONE] Numero di Courant elevato: C=%.2f (v_rel=%.1f m/s, DT=%.1fs, r_sum=%.1em)",
+                            courantNumber, relSpeed, SimulationConfig.DT, sumRadii));
                     }
                 }
                 //
@@ -328,20 +332,20 @@ public class SimulationEngine {
         long mergeId = metrics.recordMerge();
 
         if (SimulationConfig.LOG_ACCRETION_EVENTS && bothAggregated) {
-        	System.out.printf(
-        			"[t=%12.1fs] IMPATTO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)%n",
+        	logger.log(String.format(
+        			"[t=%12.1fs] IMPATTO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)",
         			metrics.getSimulationTime(), mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
-        			winner.getId(), winner.getMass(), winner.getRadius());
+        			winner.getId(), winner.getMass(), winner.getRadius()));
         } else if (wasAggregated) {
-        	System.out.printf(
-        			"[t=%12.1fs] CANNIBALISMO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)%n",
+        	logger.log(String.format(
+        			"[t=%12.1fs] CANNIBALISMO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)",
         			metrics.getSimulationTime(), mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
-        			winner.getId(), winner.getMass(), winner.getRadius());
+        			winner.getId(), winner.getMass(), winner.getRadius()));
         } else {
-        	System.out.printf(
-        			"[t=%12.1fs] ACCRESCIMENTO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)%n",
+        	logger.log(String.format(
+        			"[t=%12.1fs] ACCRESCIMENTO #%d: #%d (m=%.3e kg) + #%d (m=%.3e kg) -> #%d (m=%.3e kg, r=%.3e m)",
         			metrics.getSimulationTime(), mergeId, winner.getId(), winnerInitialMass, loser.getId(), loserInitialMass,
-        			winner.getId(), winner.getMass(), winner.getRadius());
+        			winner.getId(), winner.getMass(), winner.getRadius()));
         }
     }
 
@@ -355,10 +359,10 @@ public class SimulationEngine {
 
         if (SimulationConfig.LOG_BOUNCE_EVENTS) { // o flag equivalente per logging
             double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-            System.out.printf(
-                "[t=%12.1fs] FRAMMENTAZIONE #%d: #%d (m=%.2e kg) + #%d (m=%.2e kg) -> Generati %d frammenti [v_rel=%.1f m/s]%n",
+            logger.log(String.format(
+                "[t=%12.1fs] FRAMMENTAZIONE #%d: #%d (m=%.2e kg) + #%d (m=%.2e kg) -> Generati %d frammenti [v_rel=%.1f m/s]",
                 metrics.getSimulationTime(), fragId, p1.getId(), p1.getMass(), p2.getId(), p2.getMass(), fragments.size(), relSpeed
-            );
+            ));
         }
     }
     
@@ -369,10 +373,10 @@ public class SimulationEngine {
         if (SimulationConfig.LOG_BOUNCE_EVENTS) {
             double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
             double dist = p1.getPosition().distanceTo(p2.getPosition());
-            System.out.printf(
-                "[t=%12.1fs] RIMBALZO #%d: #%d <-> #%d [v_rel=%.1f m/s, dist=%.1f m]%n",
+            logger.log(String.format(
+                "[t=%12.1fs] RIMBALZO #%d: #%d <-> #%d [v_rel=%.1f m/s, dist=%.1f m]",
                 metrics.getSimulationTime(), bounceId, p1.getId(), p2.getId(), relSpeed, dist
-            );
+            ));
         }
     }
 
@@ -386,17 +390,17 @@ public class SimulationEngine {
             p.setAlive(false);
             metrics.recordStarFall();
             if (SimulationConfig.LOG_ACCRETION_EVENTS) {
-                System.out.printf("[t=%12.1fs] CADUTA NELLA STELLA: Particella #%d (m=%.2e kg)%n", metrics.getSimulationTime(), p.getId(), p.getMass());
+            	logger.log(String.format("[t=%12.1fs] CADUTA NELLA STELLA: Particella #%d (m=%.2e kg)", metrics.getSimulationTime(), p.getId(), p.getMass()));
             }
         }
         // ESPULSIONE DAL SISTEMA SOLARE
         else if (distFromCenter > maxSystemRadius) {
-            double vEsc = Math.sqrt((2.0 * SimulationConfig.G * SimulationConfig.STAR_MASS) / distFromCenter);
+            double vEsc = Math.sqrt((2.0 * PhysicsConstants.G * SimulationConfig.STAR_MASS) / distFromCenter);
             if (p.getVelocity().magnitude() > vEsc) {
                 p.setAlive(false);
                 metrics.recordEscape();
                 if (SimulationConfig.LOG_ACCRETION_EVENTS) {
-                    System.out.printf("[t=%12.1fs] FUGA INTERSTELLARE: Particella #%d schizzata via dal sistema!%n", metrics.getSimulationTime(), p.getId());
+                	logger.log(String.format("[t=%12.1fs] FUGA INTERSTELLARE: Particella #%d schizzata via dal sistema!", metrics.getSimulationTime(), p.getId()));
                 }
             }
         }
@@ -435,11 +439,11 @@ public class SimulationEngine {
         // Dividiamo per 2 il potenziale per evitare il doppio conteggio delle coppie
         double totalMechanicalEnergy = totalKineticEnergy + totalPotentialEnergy / 2.0 + totalStarPotentialEnergy;
 
-        System.out.printf(
-                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant Max: %.2f | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms%n",
+        logger.log(String.format(
+                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant Max: %.2f | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms",
                 metrics.getSimulationTime(), totalMechanicalEnergy,
                 aliveCount, metrics.getMaxCourantObserved(), totalMass, maxMass, maxRadius, 
                 metrics.getTotalMerges(), metrics.getTotalBounces(), metrics.getTotalFragmentations(), metrics.getTotalStarFalls(), metrics.getTotalEscapes(), 
-                forceMs, integrationMs, collisionMs);
+                forceMs, integrationMs, collisionMs));
     }
 }

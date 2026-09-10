@@ -1,78 +1,21 @@
 package net.gommagomma.stardust.demo;
 
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.swing.JFrame;
-import javax.swing.Timer;
-
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
-import net.gommagomma.stardust.SimulationEngine;
+import net.gommagomma.stardust.Stardust;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
-import net.gommagomma.stardust.ui.RenderActionListener;
-import net.gommagomma.stardust.ui.SimulationPanel;
 
 public class SolarSystemDemo
 {
-    public static final String WINDOW_TITLE = "Stardust — Sistema Solare con Satelliti Principali";
-
-    public static void main(String[] args)
+	public static void main(String[] args) throws Exception
     {
-        SimulationEngine engine = initEngine();
-        Thread engineThread = startEngineThread(engine);
-        SimulationPanel panel = new SimulationPanel(engine);
-        JFrame frame = setupWindow(panel, engine, engineThread);
-
-        startRenderLoop(frame, panel, engine, SimulationConfig.FPS);
-    }
-
-    private static SimulationEngine initEngine()
-    {
-        List<Particle> particles = createSolarSystem();
-        return new SimulationEngine(particles);
-    }
-
-    private static Thread startEngineThread(SimulationEngine engine)
-    {
-        Thread physicsThread = new Thread(engine::run, "engine-thread");
-        physicsThread.setDaemon(true);
-        physicsThread.start();
-        return physicsThread;
-    }
-
-    private static JFrame setupWindow(SimulationPanel panel, SimulationEngine engine, Thread engineThread)
-    {
-        JFrame frame = new JFrame(WINDOW_TITLE);
-        frame.add(panel);
-        frame.setSize(800, 800);
-        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-
-        frame.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                engine.stop();
-                try {
-                    engineThread.join(10000);
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
-                }
-                System.exit(0);
-            }
-        });
-
-        frame.setFocusable(true);
-        frame.setVisible(true);
-        return frame;
-    }
-
-    private static void startRenderLoop(JFrame frame, SimulationPanel panel, SimulationEngine engine, int fps)
-    {
-        RenderActionListener listener = new RenderActionListener(frame, WINDOW_TITLE, panel, engine);
-        Timer renderTimer = new Timer(1000 / fps, listener);
-        renderTimer.start();
+        Stardust stardust = new Stardust("solar-system", "Stardust — Sistema Solare con Satelliti Principali");
+        stardust.setParticles(createSolarSystem());
+        stardust.start();
     }
 
     private static List<Particle> createSolarSystem()
@@ -102,11 +45,11 @@ public class SolarSystemDemo
             particles.add(planet);
 
             // Calcolo posizione e velocità cartesiane del pianeta per agganciare i satelliti
-            double planetR = rAU * SimulationConfig.AU;
+            double planetR = rAU * PhysicsConstants.AU;
             double planetX = planetR * Math.cos(theta);
             double planetY = planetR * Math.sin(theta);
 
-            double vPlanet = Math.sqrt(SimulationConfig.G * SimulationConfig.STAR_MASS / planetR);
+            double vPlanet = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / planetR);
             double vPlanetX = -vPlanet * Math.sin(theta);
             double vPlanetY = vPlanet * Math.cos(theta);
 
@@ -144,7 +87,7 @@ public class SolarSystemDemo
         double satY = planetY + satDist * Math.sin(theta);
         Vector3D satPosition = new Vector3D(satX, satY, 0.0);
 
-        double vSatRel = Math.sqrt(SimulationConfig.G * planetMass / satDist);
+        double vSatRel = Math.sqrt(PhysicsConstants.G * planetMass / satDist);
         double satVx = vPlanetX - vSatRel * Math.sin(theta);
         double satVy = vPlanetY + vSatRel * Math.cos(theta);
         Vector3D satVelocity = new Vector3D(satVx, satVy, 0.0);
@@ -154,10 +97,10 @@ public class SolarSystemDemo
 
     private static Particle createProtoplanet(double rAU, double theta, double mass, double charge, double density)
     {
-        double r = rAU * SimulationConfig.AU;
+        double r = rAU * PhysicsConstants.AU;
         Vector3D position = new Vector3D(r * Math.cos(theta), r * Math.sin(theta), 0.0);
 
-        double v = Math.sqrt(SimulationConfig.G * SimulationConfig.STAR_MASS / r);
+        double v = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / r);
         Vector3D velocity = new Vector3D(-v * Math.sin(theta), v * Math.cos(theta), 0.0);
 
         return new Particle(position, velocity, mass, charge, density);

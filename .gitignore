@@ -1,6 +1,5 @@
-screenshots/
-savepoint.txt
-stardust_run_*.log
+simulations
+
 
 # Created by https://www.toptal.com/developers/gitignore/api/java,maven,eclipse,git
 # Edit at https://www.toptal.com/developers/gitignore?templates=java,maven,eclipse,git

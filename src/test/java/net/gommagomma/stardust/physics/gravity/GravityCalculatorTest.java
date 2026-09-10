@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -43,7 +44,7 @@ class GravityCalculatorTest {
 
         Vector3D force = GravityCalculator.calculateClampedGravity(p1, p2);
 
-        double expectedMagnitude = (SimulationConfig.G * 5.0 * 7.0) / (10.0 * 10.0);
+        double expectedMagnitude = (PhysicsConstants.G * 5.0 * 7.0) / (10.0 * 10.0);
         assertEquals(expectedMagnitude, force.magnitude(), expectedMagnitude * REL_TOL,
                 "Il modulo della forza deve coincidere con G*m1*m2/r^2");
 
@@ -128,7 +129,7 @@ class GravityCalculatorTest {
         Particle p2 = particleAt(r, 0, 0, 8.0);
 
         Vector3D plummerForce = GravityCalculator.calculatePlummerGravity(p1, p2);
-        double newtonianMagnitude = (SimulationConfig.G * 6.0 * 8.0) / (r * r);
+        double newtonianMagnitude = (PhysicsConstants.G * 6.0 * 8.0) / (r * r);
 
         double relDiff = Math.abs(plummerForce.magnitude() - newtonianMagnitude) / newtonianMagnitude;
         assertTrue(relDiff < 1e-4,
@@ -146,7 +147,7 @@ class GravityCalculatorTest {
         Particle p2 = particleAt(r, 0, 0, 1.0);
 
         Vector3D plummerForce = GravityCalculator.calculatePlummerGravity(p1, p2);
-        double naiveNewtonianMagnitude = (SimulationConfig.G * 1.0 * 1.0) / (r * r);
+        double naiveNewtonianMagnitude = (PhysicsConstants.G * 1.0 * 1.0) / (r * r);
 
         assertTrue(plummerForce.magnitude() < naiveNewtonianMagnitude,
                 "Il softening di Plummer deve ridurre la forza rispetto alla singolarità Newtoniana pura a corto raggio");

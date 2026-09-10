@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -47,8 +48,8 @@ class TwoBodyOrbitIntegrationTest {
         // Orbita circolare a r0 = 1 AU: per un'orbita circolare v0 = sqrt(G*M_star/r0), diretta
         // perpendicolarmente al raggio (tangenziale), cosi' la forza centripeta e' esattamente
         // quella gravitazionale e l'orbita si chiude su se stessa.
-        double r0 = SimulationConfig.AU;
-        double vCirc = Math.sqrt((SimulationConfig.G * SimulationConfig.STAR_MASS) / r0);
+        double r0 = PhysicsConstants.AU;
+        double vCirc = Math.sqrt((PhysicsConstants.G * SimulationConfig.STAR_MASS) / r0);
 
         // Massa "di prova" trascurabile rispetto alla stella: niente reazione sulla stella (STAR e' fissa
         // nel modello, coerente con calculateCentralStarGravity/PotentialEnergy che trattano la stella
@@ -61,7 +62,7 @@ class TwoBodyOrbitIntegrationTest {
                 3000.0
         );
 
-        double period = 2.0 * Math.PI * Math.sqrt(Math.pow(r0, 3) / (SimulationConfig.G * SimulationConfig.STAR_MASS));
+        double period = 2.0 * Math.PI * Math.sqrt(Math.pow(r0, 3) / (PhysicsConstants.G * SimulationConfig.STAR_MASS));
         double dt = SimulationConfig.DT;
         int steps = (int) Math.round(period / dt);
 
@@ -104,7 +105,7 @@ class TwoBodyOrbitIntegrationTest {
     void radialInfall_particleFallsInward_whenStartedAtRestOffCenter() {
         // Sanity check di segno: una particella ferma (non in orbita) deve cadere VERSO la stella,
         // non allontanarsi. Se la forza avesse il segno sbagliato, questo test lo scoprirebbe subito.
-        double r0 = SimulationConfig.AU;
+        double r0 = PhysicsConstants.AU;
         Particle p = new Particle(new Vector3D(r0, 0, 0), new Vector3D(0, 0, 0), 1.0e20, 0.0, 3000.0);
 
         double dt = SimulationConfig.DT;

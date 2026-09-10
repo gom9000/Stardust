@@ -48,7 +48,7 @@ public class Savepoint
         double simTime;
         long stepCount, totalMerges, totalBounces, totalFragmentations, totalEscapes, totalStarFalls;
 
-        // 1. SNAPSHOT VELOCISSIMO (Lock ridotto al minimo)
+        // snapshot veloce
         synchronized (engine.getParticles())
         {
             snapshot = new ArrayList<>(engine.getParticles());
@@ -61,7 +61,7 @@ public class Savepoint
             totalStarFalls = metrics.getTotalStarFalls();
         }
 
-        // 2. SCRITTURA SU DISCO IN CORRENTE CONTINUA (Fuori dal lock!)
+        // scrittura su file
         java.nio.file.Path outputPath = java.nio.file.Paths.get(path);
         if (outputPath.getParent() != null) {
             java.nio.file.Files.createDirectories(outputPath.getParent());
@@ -84,7 +84,7 @@ public class Savepoint
             StringBuilder sb = new StringBuilder(128);
             for (Particle p : snapshot)
             {
-                if (!p.isAlive()) continue; // Evita di salvare particelle morte residue
+                if (!p.isAlive()) continue;
 
                 Vector3D pos = p.getPosition();
                 Vector3D vel = p.getVelocity();
@@ -176,7 +176,7 @@ public class Savepoint
         }
     }
 
-    // Contenitore semplice per i dati di un savepoint
+    // Contenitore dei dati di un savepoint
     public static class SavepointState
     {
         public final List<Particle> particles;

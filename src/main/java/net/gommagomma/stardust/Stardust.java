@@ -1,9 +1,10 @@
 package net.gommagomma.stardust;
 
-
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -11,40 +12,82 @@ import java.util.Random;
 import javax.swing.JFrame;
 import javax.swing.Timer;
 
+import net.gommagomma.stardust.io.RunLogger;
 import net.gommagomma.stardust.io.Savepoint;
+import net.gommagomma.stardust.io.SimulationPaths;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.ui.RenderActionListener;
 import net.gommagomma.stardust.ui.SimulationPanel;
 
 
-public class Main
+public class Stardust
 {
-	public static final String WINDOW_TITLE = "Stardust — Accrescimento Gravitazionale Planetesimale";
+    public static final String WINDOW_TITLE = "Stardust — Accrescimento Gravitazionale Planetesimale";
+
+    private final SimulationPaths paths;
+    private final RunLogger eventsLogger;
+    private final RunLogger runsLogger;
+    private SimulationEngine engine;
+    private Thread engineThread;
+    private List<Particle> particles;
+    private final String windowTitle;
 
 
     public static void main(String[] args)
+    throws Exception
     {
-        SimulationEngine engine = initEngine();
-        Thread engineThread = startEngineThread(engine);
-        SimulationPanel panel = new SimulationPanel(engine);
-        JFrame frame = setupWindow(panel, engine, engineThread);
+    	String simulationId = (args.length > 0 && !args[0].isBlank())
+                ? args[0]
+                : "disk-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
 
-        startRenderLoop(frame, panel, engine, SimulationConfig.FPS);
-        startAutosaveLoop(engine);
+        Stardust stardust = new Stardust(simulationId);
+        stardust.setParticles(createProtoplanetaryDisk());
+        stardust.start();
     }
 
 
-    /**
-     * Inizializza l'engine tentando il ripristino da Savepoint o generando un nuovo disco.
-     */
-    private static SimulationEngine initEngine()
+    public Stardust(String simulationId)
+    throws IOException
     {
-        if (Savepoint.exists(SimulationConfig.SAVEPOINT_FILE)) {
+        this(simulationId, WINDOW_TITLE);
+    }
+
+    public Stardust(String simulationId, String windowTitle)
+    throws IOException
+    {
+        this.paths = new SimulationPaths(simulationId);
+        this.eventsLogger = new RunLogger(paths.eventsLogFile);
+        this.runsLogger = new RunLogger(paths.runsLogFile);
+        this.windowTitle = windowTitle;
+    }
+
+    public SimulationConfig getContext() {
+        return null;
+    }
+    public void setParticles(List<Particle> particles) {
+        this.particles = particles;
+    }
+
+    public void start()
+    {
+        engine = initEngine();
+        runsLogger.log(String.format("START wall=%s simTime=%.1f", LocalDateTime.now(), engine.getMetrics().getSimulationTime()));
+        engineThread = startEngineThread();
+        SimulationPanel panel = new SimulationPanel(engine);
+        JFrame frame = setupWindow(panel);
+
+        startRenderLoop(frame, panel);
+        startAutosaveLoop();
+    }
+
+    private SimulationEngine initEngine()
+    {
+        if (Savepoint.exists(paths.savepointFile.toString())) {
             try {
-                Savepoint.SavepointState state = Savepoint.load(SimulationConfig.SAVEPOINT_FILE);
+                Savepoint.SavepointState state = Savepoint.load(paths.savepointFile.toString());
                 System.out.println("Savepoint ripristinato.");
-                return new SimulationEngine(state.particles, state.metrics);
+                return new SimulationEngine(state.particles, eventsLogger, state.metrics);
             } catch (IOException e) {
                 System.err.println("Impossibile ripristinare il savepoint (" + e.getMessage() + "), generazione di un nuovo disco.");
             }
@@ -52,37 +95,24 @@ public class Main
             System.out.println("Nessun savepoint trovato, generazione di un nuovo disco.");
         }
 
-        List<Particle> particles = createProtoplanetaryDisk();
+        if (particles == null) {
+            throw new IllegalStateException("Nessuna lista di particelle impostata.");
+        }
 
-        return new SimulationEngine(particles);
+        return new SimulationEngine(particles, eventsLogger);
     }
 
-
-    /**
-     * Avvia il thread dell'engine.
-     * 
-     * @param engine Il motore di simulazione fisica da avviare
-     */
-    private static Thread startEngineThread(SimulationEngine engine)
+    private Thread startEngineThread()
     {
         Thread physicsThread = new Thread(engine::run, "engine-thread");
         physicsThread.setDaemon(true);
         physicsThread.start();
-
         return physicsThread;
     }
 
-
-    /**
-     * Configura la finestra e lega la chiusura col salvataggio dello stato.
-     * 
-     * @param panel  Il pannello grafico da visualizzare 
-     * @param engine Il motore di simulazione fisica da fermare
-     * @param engineThread  Il thread del motore da chiudere
-     */
-    private static JFrame setupWindow(SimulationPanel panel, SimulationEngine engine, Thread engineThread)
+    private JFrame setupWindow(SimulationPanel panel)
     {
-        JFrame frame = new JFrame(WINDOW_TITLE);
+        JFrame frame = new JFrame(windowTitle);
         frame.add(panel);
         frame.setSize(800, 800);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -92,84 +122,58 @@ public class Main
             public void windowClosing(WindowEvent e) {
                 System.out.println("Chiusura richiesta: stop dell'engine e salvataggio del savepoint...");
                 engine.stop();
-                saveSavepoint(engine);
                 try {
-                	engineThread.join(10000);
+                    engineThread.join(10000);
                 } catch (InterruptedException ignored) {
                     Thread.currentThread().interrupt();
                 }
-
+                saveSavepoint();
+                runsLogger.log(String.format("STOP  wall=%s simTime=%.1f", LocalDateTime.now(), engine.getMetrics().getSimulationTime()));          
                 System.exit(0);
             }
         });
 
         frame.setFocusable(true);
         frame.setVisible(true);
-
         return frame;
     }
 
-
-    /**
-     * Timer per l'aggiornamento della grafica.
-     * 
-     * @param panel  Il pannello grafico da aggiornare
-     * @param engine Il motore di simulazione fisica da cui leggere lo stato
-     * @param fps    I frame al secondo desiderati
-     */
-    private static void startRenderLoop(JFrame frame, SimulationPanel panel, SimulationEngine engine, int fps)
+    private void startRenderLoop(JFrame frame, SimulationPanel panel)
     {
-        RenderActionListener listener = new RenderActionListener(frame, WINDOW_TITLE, panel, engine);
-        Timer renderTimer = new Timer(1000 / fps, listener);
+        RenderActionListener listener = new RenderActionListener(frame, windowTitle, panel, engine, paths);
+        Timer renderTimer = new Timer(1000 / SimulationConfig.FPS, listener);
         renderTimer.start();
     }
 
-
-    /**
-     * Timer di autosalvataggio asincrono in background.
-     * 
-     * @param engine Il motore di simulazione fisica da cui leggere lo stato da salvare
-     */
-    private static void startAutosaveLoop(SimulationEngine engine)
+    private void startAutosaveLoop()
     {
         if (SimulationConfig.AUTOSAVE_INTERVAL_SECONDS > 0) {
-            Timer autosaveTimer = new Timer(SimulationConfig.AUTOSAVE_INTERVAL_SECONDS * 1000, e -> {
-                new Thread(() -> saveSavepoint(engine), "autosave-savepoint-thread").start();
-            });
+            Timer autosaveTimer = new Timer(SimulationConfig.AUTOSAVE_INTERVAL_SECONDS * 1000, e ->
+                new Thread(this::saveSavepoint, "autosave-savepoint-thread").start());
             autosaveTimer.start();
         }
     }
 
-
-    /**
-     * Helper per la scrittura fisica su disco del Savepoint.
-     */
-    private static void saveSavepoint(SimulationEngine engine)
+    private void saveSavepoint()
     {
         try {
-            Savepoint.save(SimulationConfig.SAVEPOINT_FILE, engine);
+            Savepoint.save(paths.savepointFile.toString(), engine);
         } catch (IOException e) {
             System.err.println("Errore nel salvataggio del savepoint: " + e.getMessage());
         }
     }
 
-
-    /**
-     * Generazione del disco protoplanetario.
-     */
+    // Generazione del disco
     private static List<Particle> createProtoplanetaryDisk()
     {
         List<Particle> particles = new ArrayList<>();
         Random rnd = new Random();
 
-        // 1. INSERIMENTO PROTOPIANETI (Prenderanno ID #0, #1...)
         //particles.add(createProtoplanet(0.4, Math.PI, 1e25, 0.0, 3000.0));
 
-        // 2. GENERAZIONE POLVERI
         double exp = 1.0 - SimulationConfig.MASS_POWER_LAW_INDEX;
         double mMinExp = Math.pow(SimulationConfig.BASE_PARTICLE_MASS_MIN, exp);
         double mMaxExp = Math.pow(SimulationConfig.BASE_PARTICLE_MASS_MAX, exp);
-
         double r2Min = SimulationConfig.DISK_INNER_RADIUS * SimulationConfig.DISK_INNER_RADIUS;
         double r2Max = SimulationConfig.DISK_OUTER_RADIUS * SimulationConfig.DISK_OUTER_RADIUS;
 
@@ -182,39 +186,32 @@ public class Main
             double y = r * Math.sin(theta);
             double z = (rnd.nextDouble() - 0.5) * r * 0.01;
 
-            double v = Math.sqrt(SimulationConfig.G * SimulationConfig.STAR_MASS / r);
+            double v = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / r);
             double vx = -v * Math.sin(theta);
             double vy =  v * Math.cos(theta);
             double vz = rnd.nextDouble() - 0.5;
 
-            double dispersion = SimulationConfig.INITIAL_VELOCITY_DISPERSION * v; 
+            double dispersion = SimulationConfig.INITIAL_VELOCITY_DISPERSION * v;
             vx += (rnd.nextDouble() - 0.5) * dispersion;
             vy += (rnd.nextDouble() - 0.5) * dispersion;
             vz *= dispersion;
 
-            Vector3D position = new Vector3D(x, y, z);
-            Vector3D velocity = new Vector3D(vx, vy, vz);
-
-            double u = rnd.nextDouble(); 
+            double u = rnd.nextDouble();
             double mass = Math.pow(mMinExp + u * (mMaxExp - mMinExp), 1.0 / exp);
             double charge = (rnd.nextBoolean() ? 1 : -1) * rnd.nextDouble() * SimulationConfig.MAX_INITIAL_CHARGE;
 
-            particles.add(new Particle(position, velocity, mass, charge, SimulationConfig.INITIAL_DUST_DENSITY));
+            particles.add(new Particle(new Vector3D(x, y, z), new Vector3D(vx, vy, vz), mass, charge, SimulationConfig.INITIAL_DUST_DENSITY));
         }
 
         return particles;
     }
 
-
-    /**
-     * Factory method per definire protopianeti in orbita circolare kepleriana.
-     */
     private static Particle createProtoplanet(double rAU, double theta, double mass, double charge, double density)
     {
-        double r = rAU * SimulationConfig.AU;
+        double r = rAU * PhysicsConstants.AU;
         Vector3D position = new Vector3D(r * Math.cos(theta), r * Math.sin(theta), 0.0);
 
-        double v = Math.sqrt(SimulationConfig.G * SimulationConfig.STAR_MASS / r);
+        double v = Math.sqrt(PhysicsConstants.G * SimulationConfig.STAR_MASS / r);
         Vector3D velocity = new Vector3D(-v * Math.sin(theta), v * Math.cos(theta), 0.0);
 
         return new Particle(position, velocity, mass, charge, density);

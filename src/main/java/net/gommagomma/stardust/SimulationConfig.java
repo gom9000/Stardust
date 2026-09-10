@@ -14,24 +14,19 @@ public final class SimulationConfig
     private SimulationConfig() {}
     public static final String SESSION_ID = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
 
-    // Phisical constants
-    public static final double G = 6.674e-11;       // Costante di gravitazione universale (N*m^2/kg^2)
-    public static final double K_COULOMB = 8.99e9;  // Costante di Coulomb (N*m^2/C^2)
-
     // Simulation parameters
-    public static final int N = 15000;                      // Numero particelle
-    public static final double DT = 450.0;                   // Step temporale (secondi)
+    public static final int N = 1500;                      // Numero particelle
+    public static final double DT = 3600.0;                   // Step temporale (secondi)
     public static final double SOFTENING = 1; //500.0;         // Softening parameter (m)
     public static final GravityModel ACTIVE_GRAVITY_MODEL = GravityModel.NEWTONIAN_CLAMPED;
 
     // Parametri Astronomici
-    public static final double AU = 1.496e11;
     public static final double STAR_MASS = 1.989e30;       // Massa stella (sole) centrale (kg)
     public static final double STAR_RADIUS = 6.963e8;          //
     public static final double STAR_DENSITY = 1408.0;     // Densità media solare (kg/m³)
-    public static final double DISK_INNER_RADIUS = 0.3 * AU;  // Raggio interno disco (m)
-    public static final double DISK_OUTER_RADIUS = 0.7 * AU;         // Raggio esterno disco (m)
-    public static final double V_REF_STAR = Math.sqrt((G * STAR_MASS) / DISK_INNER_RADIUS);
+    public static final double DISK_INNER_RADIUS = 0.3 * PhysicsConstants.AU;  // Raggio interno disco (m)
+    public static final double DISK_OUTER_RADIUS = 0.7 * PhysicsConstants.AU;         // Raggio esterno disco (m)
+    public static final double V_REF_STAR = Math.sqrt((PhysicsConstants.G * STAR_MASS) / DISK_INNER_RADIUS);
     public static final Particle STAR = new Particle(new Vector3D(0, 0, 0), new Vector3D(0, 0, 0), STAR_MASS, 0.0, STAR_DENSITY);
 
     // Aerodinamica e Gas Drag
@@ -60,15 +55,14 @@ public final class SimulationConfig
     public static final int FPS = 15;
     public static final int TOP_ORBITS_COUNT = 3; // Numero di orbite principali da evidenziare per massa del corpo
     public static final double GAP_MIN_CLEARING_RATIO = 0.8; // Percentuale minima di svuotamento radiale per evidenziare le zone a bassa densità
-    public static final double DENSITY_RING_WIDTH = 0.005 * AU; // Larghezza dell'anello per l'analisi della densità (metri)
+    public static final double DENSITY_RING_WIDTH = 0.005 * PhysicsConstants.AU; // Larghezza dell'anello per l'analisi della densità (metri)
 
     // Logging
     public static final boolean LOG_ACCRETION_EVENTS = true;
     public static final boolean LOG_BOUNCE_EVENTS = true;
-    public static final int LOG_SUMMARY_EVERY_N_STEPS = 5000;
+    public static final int LOG_SUMMARY_EVERY_N_STEPS = 100;
 
     // Savepoint (salva/riprendi la simulazione tra sessioni diverse)
-    public static final String SAVEPOINT_FILE = "savepoint.txt";
     public static final int AUTOSAVE_INTERVAL_SECONDS = 300; // ogni 5 minuti (0 = disattivo)
 
     // Performance

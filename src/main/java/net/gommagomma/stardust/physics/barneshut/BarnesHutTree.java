@@ -3,6 +3,7 @@ package net.gommagomma.stardust.physics.barneshut;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -318,21 +319,21 @@ public class BarnesHutTree {
                 double effectiveDistSq = distSq + softeningSq;
                 double effectiveDist = Math.sqrt(effectiveDistSq);
 
-                double gFactor = (SimulationConfig.G * target.getMass() * totalMass) / (effectiveDistSq * effectiveDist);
+                double gFactor = (PhysicsConstants.G * target.getMass() * totalMass) / (effectiveDistSq * effectiveDist);
                 double cFactor = 0.0;
 
                 if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
-                    cFactor = (SimulationConfig.K_COULOMB * target.getCharge() * totalCharge) / (effectiveDistSq * effectiveDist);
+                    cFactor = (PhysicsConstants.K_COULOMB * target.getCharge() * totalCharge) / (effectiveDistSq * effectiveDist);
                 }
 
                 double netFactor = gFactor - cFactor;
                 acc.add(dx * netFactor, dy * netFactor, dz * netFactor);
 
-                double gPotential = -(SimulationConfig.G * target.getMass() * totalMass) / effectiveDist;
+                double gPotential = -(PhysicsConstants.G * target.getMass() * totalMass) / effectiveDist;
                 double cPotential = 0.0;
 
                 if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
-                    cPotential = (SimulationConfig.K_COULOMB * target.getCharge() * totalCharge) / effectiveDist;
+                    cPotential = (PhysicsConstants.K_COULOMB * target.getCharge() * totalCharge) / effectiveDist;
                 }
 
                 acc.addPotential(gPotential + cPotential);
@@ -365,11 +366,11 @@ public class BarnesHutTree {
 
             double dist = target.getPosition().distanceTo(other.getPosition());
             if (dist > 0) {
-                double gPotential = -(SimulationConfig.G * target.getMass() * other.getMass()) / dist;
+                double gPotential = -(PhysicsConstants.G * target.getMass() * other.getMass()) / dist;
                 double cPotential = 0.0;
 
                 if (SimulationConfig.ENABLE_ELECTROSTATIC_FORCE) {
-                    cPotential = (SimulationConfig.K_COULOMB * target.getCharge() * other.getCharge()) / dist;
+                    cPotential = (PhysicsConstants.K_COULOMB * target.getCharge() * other.getCharge()) / dist;
                 }
 
                 acc.addPotential(gPotential + cPotential);

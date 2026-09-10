@@ -1,5 +1,6 @@
 package net.gommagomma.stardust.physics.gravity;
 
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
@@ -34,7 +35,7 @@ public class GravityCalculator {
         if (distanceSquared == 0) return new Vector3D(0, 0, 0);
 
         double safeDistSq = Math.max(distanceSquared, 1e-4);
-        double forceFactor = (SimulationConfig.G * p1.getMass() * p2.getMass()) / (safeDistSq * Math.sqrt(safeDistSq));
+        double forceFactor = (PhysicsConstants.G * p1.getMass() * p2.getMass()) / (safeDistSq * Math.sqrt(safeDistSq));
 
         return diff.multiply(forceFactor);
     }
@@ -54,7 +55,7 @@ public class GravityCalculator {
         double effectiveDistSq = distanceSquared + epsSq;
         double effectiveDist = Math.sqrt(effectiveDistSq);
 
-        double forceFactor = (SimulationConfig.G * p1.getMass() * p2.getMass()) / (effectiveDistSq * effectiveDist);
+        double forceFactor = (PhysicsConstants.G * p1.getMass() * p2.getMass()) / (effectiveDistSq * effectiveDist);
 
         return diff.multiply(forceFactor);
     }

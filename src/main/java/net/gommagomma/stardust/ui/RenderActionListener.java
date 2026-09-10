@@ -9,6 +9,7 @@ import javax.swing.JFrame;
 
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.SimulationEngine;
+import net.gommagomma.stardust.io.SimulationPaths;
 
 
 public class RenderActionListener
@@ -19,18 +20,20 @@ implements ActionListener
 
     private final SimulationPanel panel;
     private final SimulationEngine engine;
+    private final SimulationPaths paths;
 
     private long lastScreenshotStep = -1;
     private long lastFpsCheckTime = System.currentTimeMillis();
     private int frameCount = 0;
 
 
-    public RenderActionListener(JFrame frame, String baseTitle, SimulationPanel panel, SimulationEngine engine)
+    public RenderActionListener(JFrame frame, String baseTitle, SimulationPanel panel, SimulationEngine engine, SimulationPaths paths)
     {
         this.frame = frame;
         this.baseTitle = baseTitle;
         this.panel = panel;
         this.engine = engine;
+        this.paths = paths;
     }
 
 
@@ -58,9 +61,9 @@ implements ActionListener
 
         // Salvataggio Screenshot della simulazione
         long currentStep = engine.getMetrics().getStepCount();
-        if (currentStep == 0 || (currentStep > 0 && currentStep % 15000 == 0 && currentStep != lastScreenshotStep)) {
+        if (currentStep == 0 || (currentStep > 0 && currentStep % 1500 == 0 && currentStep != lastScreenshotStep)) {
             lastScreenshotStep = currentStep;
-            File file = new File(new File("screenshots"), String.format("screenshot_%s_t%09d.png", SimulationConfig.SESSION_ID, (long) engine.getMetrics().getSimulationTime()));
+            File file = new File(paths.screenshotsDir.toString(), String.format("screenshot_t%d.png", (long) engine.getMetrics().getSimulationTime()));
             panel.saveScreenshot(file);
         }
     }

@@ -23,6 +23,7 @@ import javax.imageio.ImageIO;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationConfig;
 import net.gommagomma.stardust.SimulationEngine;
 import net.gommagomma.stardust.model.Particle;
@@ -404,7 +405,7 @@ public class SimulationPanel extends JPanel {
 
         // 2. Top N corpi e orbite
         int[] topIndices = findTopMassiveIndices(mass, count, SimulationConfig.TOP_ORBITS_COUNT);
-        double mu = SimulationConfig.G * SimulationConfig.STAR_MASS;
+        double mu = PhysicsConstants.G * SimulationConfig.STAR_MASS;
         Color defaultOrbitColor = new Color(255, 255, 255, 70);
         BasicStroke defaultStroke = new BasicStroke((float)(1.0 / scale), BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER,
                                                 10.0f, new float[]{5.0f / (float)scale, 5.0f / (float)scale}, 0.0f);
@@ -548,7 +549,7 @@ public class SimulationPanel extends JPanel {
         int textY = hudY + 20;
         int lineHeight = 17;
 
-        double rAU = Math.hypot(rx, ry) / SimulationConfig.AU;
+        double rAU = Math.hypot(rx, ry) / PhysicsConstants.AU;
         double vKmS = Math.hypot(vx, vy) / 1000.0;
         double radiusKm = r / 1000.0;
 
@@ -678,7 +679,7 @@ public class SimulationPanel extends JPanel {
 
     private void drawSinglePlanetaryClearingZone(Graphics2D g2World, float[] x, float[] y, int count, 
                                                  double rx, double ry, double vx, double vy, double mass) {
-        double mu = SimulationConfig.G * SimulationConfig.STAR_MASS;
+        double mu = PhysicsConstants.G * SimulationConfig.STAR_MASS;
         double rMag = Math.hypot(rx, ry);
         if (rMag == 0) return;
 
