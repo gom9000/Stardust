@@ -167,6 +167,8 @@ mvn test-compile
 mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.benchmark.DtThetaDurationEnergyMatrix" -Dexec.classpathScope=test
 ```
 
+Le misure raccolte nel tempo vivono in `benchmarks/`.
+
 
 ## About & License
 **Author**: Alessandro Fraschetti (gom9000).  
