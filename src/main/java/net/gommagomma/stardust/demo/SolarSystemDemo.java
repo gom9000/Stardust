@@ -14,7 +14,14 @@ public class SolarSystemDemo
 	public static void main(String[] args) throws Exception
     {
         Stardust stardust = new Stardust("solar-system", "Stardust — Sistema Solare con Satelliti Principali");
-        stardust.setParticles(createSolarSystem(stardust.getContext()));
+        SimulationParams params = stardust.getContext();
+        params.dt = 30;
+        params.diskInnerRadius=0.1 * PhysicsConstants.AU;
+        params.diskOuterRadius=32 * PhysicsConstants.AU;
+        params.hillCaptureFraction=0.0005;
+        params.topOrbitsCount=8;
+        params.logSummaryEveryNSteps=0;
+        stardust.setParticles(createSolarSystem(params));
         stardust.start();
     }
 

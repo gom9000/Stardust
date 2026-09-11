@@ -96,7 +96,7 @@ class SimulationEngineTest {
 
     @Test
     void step_conservesTotalMass_overManySteps_viaSequentialDispatch(@TempDir Path tempDir) throws IOException {
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 50; // sotto qualunque soglia: usa computeForcesSequential
 
         List<Particle> particles = generateOrbitingCloud(50, params, 1L);
@@ -114,7 +114,7 @@ class SimulationEngineTest {
 
     @Test
     void step_conservesTotalMass_overManySteps_viaParallelDispatch(@TempDir Path tempDir) throws IOException {
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 250;
         params.barnesHutThreshold = 100000; // forza il fallback parallelo anche a 250 particelle
 
@@ -133,7 +133,7 @@ class SimulationEngineTest {
 
     @Test
     void step_conservesTotalMass_overManySteps_viaBarnesHutDispatch(@TempDir Path tempDir) throws IOException {
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 450;
         params.barnesHutThreshold = 400; // 450 >= 400: attiva Barnes-Hut
 
@@ -162,7 +162,7 @@ class SimulationEngineTest {
         // che il conteggio delle particelle risultante torni ESATTAMENTE con quello che dicono
         // i contatori cumulativi -- lo stesso tipo di riscontro incrociato ID<->STATO che abbiamo
         // usato più volte analizzando i log reali di produzione.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 300;
         params.dt = 300.0;
 
@@ -208,7 +208,7 @@ class SimulationEngineTest {
 
     @Test
     void metrics_stepCountAndSimulationTime_advanceExactly_withEachStep(@TempDir Path tempDir) throws IOException {
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 30;
         params.dt = 123.0; // valore non tondo, per essere sicuri che non sia un caso fortunato
 
@@ -232,7 +232,7 @@ class SimulationEngineTest {
 
     @Test
     void step_removesParticle_thatFallsIntoTheStar(@TempDir Path tempDir) throws IOException {
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 2;
 
         // Particella ferma, gia' ben dentro il raggio stellare: qualunque spostamento indotto
@@ -255,7 +255,7 @@ class SimulationEngineTest {
 
     @Test
     void step_removesParticle_thatEscapesTheSystem(@TempDir Path tempDir) throws IOException {
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 2;
 
         double maxSystemRadius = params.diskOuterRadius * 3.0; // stesso limite usato da SimulationEngine.step()
@@ -283,7 +283,7 @@ class SimulationEngineTest {
     void step_doesNotRemove_particleWellWithinBounds_movingSlowly(@TempDir Path tempDir) throws IOException {
         // Controllo di sanita' complementare: una particella in un'orbita ordinaria (ne' troppo
         // vicina alla stella ne' oltre il bordo) non deve MAI essere rimossa per errore.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 1;
 
         double r = PhysicsConstants.AU;
@@ -313,7 +313,7 @@ class SimulationEngineTest {
         // non step() chiamato direttamente -- e' un comportamento INTENZIONALE (i test e gli strumenti
         // di debug possono avanzare la simulazione un passo alla volta anche a "pausa" logicamente
         // attiva), documentato qui esplicitamente per non essere scambiato in futuro per un bug.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.n = 1;
         Particle p = particleAt(PhysicsConstants.AU, 0, 0, 0, 0, 0, 1e20);
 

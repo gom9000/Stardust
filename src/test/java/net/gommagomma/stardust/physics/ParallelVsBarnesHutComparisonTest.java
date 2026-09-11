@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationParams;
+import net.gommagomma.stardust.TestParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.physics.barneshut.BarnesHutTree;
@@ -77,7 +78,7 @@ class ParallelVsBarnesHutComparisonTest {
 
     @Test
     void barnesHutWithDefaultTheta_agreesClosely_withDirectSummation_onRealisticDiskPopulation() {
-        SimulationParams params = new SimulationParams(); // theta di default (0.6), stessa softening ecc.
+        SimulationParams params = TestParams.defaults(); // theta di default (0.6), stessa softening ecc.
         Physics physics = new Physics(params);
 
         int n = 300; // abbastanza per avere una vera distribuzione spaziale, abbastanza poco per l'O(N^2) nel test
@@ -122,7 +123,7 @@ class ParallelVsBarnesHutComparisonTest {
         // ma non dovrebbe mai sbagliare "verso dove" in modo grossolano (angolo tra le due forze
         // vicino a 180°), altrimenti il moto risultante sarebbe qualitativamente diverso, non solo
         // numericamente meno preciso.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         Physics physics = new Physics(params);
 
         int n = 300;

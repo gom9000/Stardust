@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import net.gommagomma.stardust.SimulationParams;
+import net.gommagomma.stardust.TestParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.physics.Physics;
@@ -30,7 +31,7 @@ class BarnesHutTreeTest {
 
     private static final double REL_TOL = 1e-9;
 
-    private final SimulationParams params = new SimulationParams();
+    private final SimulationParams params = TestParams.defaults();
     private final Physics physics = new Physics(params);
     private final GravityCalculator gravityCalculator = new GravityCalculator(params);
 
@@ -55,7 +56,7 @@ class BarnesHutTreeTest {
     }
 
     private SimulationParams paramsWithTheta(double theta) {
-        SimulationParams p = new SimulationParams();
+        SimulationParams p = TestParams.defaults();
         p.barnesHutTheta = theta;
         return p;
     }

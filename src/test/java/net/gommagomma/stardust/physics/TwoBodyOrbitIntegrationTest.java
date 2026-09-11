@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationParams;
+import net.gommagomma.stardust.TestParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 
@@ -16,7 +17,7 @@ import net.gommagomma.stardust.model.Particle;
  */
 class TwoBodyOrbitIntegrationTest {
 
-    private final SimulationParams params = new SimulationParams();
+    private final SimulationParams params = TestParams.defaults();
     private final Physics physics = new Physics(params);
 
     private void stepUnderStarGravity(Particle p, double dt) {

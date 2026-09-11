@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationParams;
+import net.gommagomma.stardust.TestParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 
@@ -36,7 +37,7 @@ class GravityCalculatorTest {
 
     @Test
     void clampedGravity_matchesNewtonianFormula_atLargeDistance() {
-        GravityCalculator gc = new GravityCalculator(new SimulationParams());
+        GravityCalculator gc = new GravityCalculator(TestParams.defaults());
         Particle p1 = particleAt(0, 0, 0, 5.0);
         Particle p2 = particleAt(10.0, 0, 0, 7.0);
 
@@ -52,7 +53,7 @@ class GravityCalculatorTest {
 
     @Test
     void clampedGravity_respectsNewtonThirdLaw() {
-        GravityCalculator gc = new GravityCalculator(new SimulationParams());
+        GravityCalculator gc = new GravityCalculator(TestParams.defaults());
         Particle p1 = particleAt(1.0, 2.0, 3.0, 4.0);
         Particle p2 = particleAt(-2.0, 0.5, 7.0, 9.0);
 
@@ -65,7 +66,7 @@ class GravityCalculatorTest {
 
     @Test
     void clampedGravity_isZero_whenParticlesExactlyOverlap() {
-        GravityCalculator gc = new GravityCalculator(new SimulationParams());
+        GravityCalculator gc = new GravityCalculator(TestParams.defaults());
         Particle p1 = particleAt(3.0, 3.0, 3.0, 1.0);
         Particle p2 = particleAt(3.0, 3.0, 3.0, 1.0);
 
@@ -77,7 +78,7 @@ class GravityCalculatorTest {
 
     @Test
     void clampedGravity_neverDivergesBelowSafetyThreshold_andDecaysLinearlyToZero() {
-        GravityCalculator gc = new GravityCalculator(new SimulationParams());
+        GravityCalculator gc = new GravityCalculator(TestParams.defaults());
         Particle p1 = particleAt(0, 0, 0, 1.0);
         Particle p2close = particleAt(0.001, 0, 0, 1.0);
         Particle p2atClamp = particleAt(0.01, 0, 0, 1.0);
@@ -96,7 +97,7 @@ class GravityCalculatorTest {
 
     @Test
     void plummerGravity_isFinite_atZeroDistance() {
-        GravityCalculator gc = new GravityCalculator(new SimulationParams());
+        GravityCalculator gc = new GravityCalculator(TestParams.defaults());
         Particle p1 = particleAt(5.0, 5.0, 5.0, 2.0);
         Particle p2 = particleAt(5.0, 5.0, 5.0, 2.0);
 
@@ -108,7 +109,7 @@ class GravityCalculatorTest {
 
     @Test
     void plummerGravity_convergesToNewtonian_atDistanceMuchLargerThanSoftening() {
-        SimulationParams params = new SimulationParams(); // softening = 1.0 m
+        SimulationParams params = TestParams.defaults(); // softening = 1.0 m
         GravityCalculator gc = new GravityCalculator(params);
         double r = 1000.0; // >> softening
         Particle p1 = particleAt(0, 0, 0, 6.0);
@@ -124,7 +125,7 @@ class GravityCalculatorTest {
 
     @Test
     void plummerGravity_isWeakerThanNaiveNewtonian_nearSofteningScale() {
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         GravityCalculator gc = new GravityCalculator(params);
         double eps = params.softening;
         double r = eps / 4.0;
@@ -140,7 +141,7 @@ class GravityCalculatorTest {
 
     @Test
     void calculateGravity_dispatchesToCorrectModel() {
-        GravityCalculator gc = new GravityCalculator(new SimulationParams());
+        GravityCalculator gc = new GravityCalculator(TestParams.defaults());
         Particle p1 = particleAt(0, 0, 0, 3.0);
         Particle p2 = particleAt(50.0, 0, 0, 4.0);
 

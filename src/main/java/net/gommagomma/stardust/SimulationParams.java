@@ -75,28 +75,6 @@ public class SimulationParams
      * cosi' i test restano riproducibili senza dipendere dal filesystem.
      */
     public SimulationParams() {
-        n = 15000;
-        initialParticleMassMin = 2e19;
-        initialParticleMassMax = 2e21;
-        diskInnerRadius = 0.3 * PhysicsConstants.AU;
-        diskOuterRadius = 0.7 * PhysicsConstants.AU;
-        initialVelocityDispersion = 0.005;
-        initialParticleDensity = 100.0;
-
-        dt = 300.0;
-        softening = 1.0;
-        useParallelForces = true;
-        useBarnesHut = true;
-        barnesHutTheta = 0.6;
-        barnesHutThreshold = 400;
-
-        hillCaptureFraction = 0.20;
-        hillAmplification = 3.0;
-        gravitationalCaptureMultiplier = 1.0;
-
-        dragReferenceDensity = 3000.0;
-        gasDensityBase = 1.4e-9;
-
         centralStar = new Particle(new Vector3D(0, 0, 0), new Vector3D(0, 0, 0), centralStarMass, 0.0, centralStarDensity);
     }
 

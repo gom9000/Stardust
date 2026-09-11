@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import net.gommagomma.stardust.SimulationParams;
+import net.gommagomma.stardust.TestParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 
@@ -18,7 +19,7 @@ import net.gommagomma.stardust.model.Particle;
  */
 class NBodyForceAccumulationTest {
 
-    private final SimulationParams params = new SimulationParams();
+    private final SimulationParams params = TestParams.defaults();
     private final Physics physics = new Physics(params);
 
     private static Particle particleAt(double x, double y, double z, double mass) {

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import net.gommagomma.stardust.SimulationParams;
+import net.gommagomma.stardust.TestParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 
@@ -20,7 +21,7 @@ import net.gommagomma.stardust.model.Particle;
  */
 class CollisionDetectionTest {
 
-    private final SimulationParams params = new SimulationParams();
+    private final SimulationParams params = TestParams.defaults();
     private final Physics physics = new Physics(params);
 
     // Massa/densità scelte per ottenere un raggio di captura piccolo e leggibile (qualche metro),

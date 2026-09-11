@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationParams;
+import net.gommagomma.stardust.TestParams;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.physics.collision.CollisionResult;
@@ -42,7 +43,7 @@ class PhysicalCertificationTest {
         // fattore diverso da un piccolo arrotondamento, vorrebbe dire che PhysicsConstants.G o
         // SimulationParams.centralStarMass hanno un'unità di misura sbagliata da qualche parte —
         // esattamente il tipo di bug (conversione AU/metri) che abbiamo trovato più volte a mano.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         double r = PhysicsConstants.AU;
         double vCirc = Math.sqrt(PhysicsConstants.G * params.centralStarMass / r);
 
@@ -56,7 +57,7 @@ class PhysicalCertificationTest {
     void hillRadiusOfJupiterLikeBody_matchesKnownAstronomicalOrderOfMagnitude() {
         // Il raggio di Hill reale di Giove è ~0,355 AU (~53 milioni di km). Verifica indipendente
         // che getHillRadius produca il giusto ordine di grandezza con masse/distanze reali.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         Physics physics = new Physics(params);
 
         double rJupiter = 5.203 * PhysicsConstants.AU;
@@ -84,7 +85,7 @@ class PhysicalCertificationTest {
         // fusione e' in pratica il pavimento fisso dustCohesionThreshold=2,5 m/s. Un incontro lento
         // (2 m/s, sotto quel pavimento) e' esattamente il regime di accrescimento "soft landing" da
         // cui nascono i planetesimi.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         Physics physics = new Physics(params);
 
         double m = 1e15;
@@ -105,7 +106,7 @@ class PhysicalCertificationTest {
         // fuga reciproca calcolata li' e' minuscola e la soglia di fusione la ignora in favore del
         // pavimento fisso) ma sotto quella di frammentazione (5,0 m/s) — un urto che deflette le
         // traiettorie senza né fondere né distruggere i corpi.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         Physics physics = new Physics(params);
 
         double m = 1e15;
@@ -122,7 +123,7 @@ class PhysicalCertificationTest {
     void catastrophicImpact_resultsInFragmentation() {
         // Velocità relativa molto alta (50 m/s, oltre 4x la soglia di frammentazione): un impatto
         // energetico che nella realtà distruggerebbe entrambi i corpi in una nube di detriti.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         Physics physics = new Physics(params);
 
         double m = 1e15;
@@ -148,7 +149,7 @@ class PhysicalCertificationTest {
         // certifica che questo margine resta positivo con i parametri di default correnti: se un
         // giorno qualcuno alzasse hillCaptureFraction anche di poco, questo test fallirebbe SUBITO,
         // invece di scoprirlo per caso aprendo la demo e notando che la Luna e' sparita.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         Physics physics = new Physics(params);
 
         double starPlanetDist = 1.0 * PhysicsConstants.AU;
@@ -172,7 +173,7 @@ class PhysicalCertificationTest {
         // hillCaptureFraction molto più basso per mostrare i satelliti di Giove. Questo test
         // certifica che il comportamento (oggi non fisicamente realistico per lune di pianeti
         // giganti) resta noto e intenzionale con i parametri di default, non una sorpresa silenziosa.
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         Physics physics = new Physics(params);
 
         double starPlanetDist = 5.203 * PhysicsConstants.AU;
@@ -201,7 +202,7 @@ class PhysicalCertificationTest {
         Path file = tempDir.resolve("params-test.txt");
         Files.writeString(file, "diskInnerRadiusAU=0.4\ndiskOuterRadiusAU=2.5\n");
 
-        SimulationParams params = new SimulationParams();
+        SimulationParams params = TestParams.defaults();
         params.load(file.toFile());
 
         assertEquals(0.4 * PhysicsConstants.AU, params.diskInnerRadius, 1.0,

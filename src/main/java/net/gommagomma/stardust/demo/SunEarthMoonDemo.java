@@ -13,6 +13,11 @@ public class SunEarthMoonDemo
 	public static void main(String[] args) throws Exception
     {
         Stardust stardust = new Stardust("sole-terra-luna", "Stardust — Sistema Gerarchico");
+        SimulationParams params = stardust.getContext();
+        params.dt = 10;
+        params.diskInnerRadius=0.3 * PhysicsConstants.AU;
+        params.diskOuterRadius=1.2 * PhysicsConstants.AU;
+        params.logSummaryEveryNSteps=0;
         stardust.setParticles(createHierarchicalSystem(stardust.getContext()));
         stardust.start();
     }
