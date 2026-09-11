@@ -54,8 +54,8 @@ class SimulationEngineTest {
             double vx = -v * Math.sin(theta);
             double vy = v * Math.cos(theta);
 
-            double mass = params.baseParticleMassMin
-                    + rnd.nextDouble() * (params.baseParticleMassMax - params.baseParticleMassMin);
+            double mass = params.initialParticleMassMin
+                    + rnd.nextDouble() * (params.initialParticleMassMax - params.initialParticleMassMin);
 
             particles.add(particleAt(x, y, 0, vx, vy, 0, mass));
         }
@@ -82,8 +82,8 @@ class SimulationEngineTest {
         for (int i = 0; i < n; i++) {
             double dx = (rnd.nextDouble() - 0.5) * 2 * clusterRadius;
             double dy = (rnd.nextDouble() - 0.5) * 2 * clusterRadius;
-            double mass = params.baseParticleMassMin
-                    + rnd.nextDouble() * (params.baseParticleMassMax - params.baseParticleMassMin);
+            double mass = params.initialParticleMassMin
+                    + rnd.nextDouble() * (params.initialParticleMassMax - params.initialParticleMassMin);
 
             particles.add(particleAt(r0 + dx, dy, 0, 0, v0, 0, mass));
         }

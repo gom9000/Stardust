@@ -26,17 +26,17 @@ I corpi hanno masse sufficienti perché la mutua gravità domini su ogni altra i
 
 ## Modelli e Fenomeni Fisici
 
-### 1. Interazione Gravitazionale
+### Interazione Gravitazionale
 * **Il fenomeno:** La gravità è la forza dominante della Fase 4. Regola sia l'attrazione reciproca tra i planetesimi sia il moto orbitale attorno al corpo centrale, determinando la struttura globale del disco.
 * **Come funziona:** Ogni particella esercita una forza attrattiva proporzionale al prodotto delle masse e inversamente proporzionale al quadrato della distanza (legge di gravitazione universale di Newton).
 * **Come lo modello:** Per gestire sistemi con migliaia di corpi senza collassare a livello computazionale ($\mathcal{O}(N^2)$), il motore adotta un approccio gerarchico basato sull'algoritmo **Barnes-Hut** ($\mathcal{O}(N \log N)$), che approssima l'attrazione dei cluster distanti tramite alberi di suddivisione spaziale (QuadTree/OctTree).
 
-### 2. Attrito del Gas (Aerodynamic Drag)
+### Attrito del Gas (Aerodynamic Drag)
 * **Il fenomeno:** Nel disco protoplanetario è presente un residuo di gas gassoso che orbita a una velocità leggermente inferiore rispetto ai corpi solidi (a causa del gradiente di pressione radiale). Questo crea un vento contrario che frena i planetesimi, facendone decadere l'energia orbitale.
 * **Come funziona:** Il gas esercita una resistenza aerodinamica dipendente dalla densità del mezzo, dalla velocità relativa tra particella e gas, e dalle dimensioni fisiche del corpo.
 * **Come lo modello:** È implementato con una transizione continua tra i regimi di **Epstein** (quando il diametro del corpo è inferiore al cammino libero medio delle molecole di gas) e **Stokes** (per corpi più grandi), smorzando l'eccentricità e l'inclinazione orbitale dei frammenti minori.
 
-### 3. Dinamica degli Urti, Accrescimento e Frammentazione
+### Dinamica degli Urti, Accrescimento e Frammentazione
 * **Il fenomeno:** Quando due corpi si intersecano nello spazio, l'esito dello scontro dipende dall'energia cinetica relativa e dalle proprietà meccaniche dei materiali: possono rimbalzare elasticamente/anelasticamente, fondersi (accrescimento) o frantumarsi in uno sciame di detriti.
 * **Come funziona:** L'energia d'urto nel sistema di riferimento del centro di massa viene confrontata con soglie di energia critica di legame gravitazionale e strutturale delle particelle coinvolte.
 * **Come lo modello:** 
@@ -44,14 +44,14 @@ I corpi hanno masse sufficienti perché la mutua gravità domini su ogni altra i
   * **Rimbalzo:** Se l'urto è anelastico ma sotto la soglia di rottura, viene applicato un coefficiente di restituzione per calcolare le velocità post-impatto.
   * **Frammentazione:** Se l'energia cinetica supera la soglia critica, il corpo maggiore viene disgregato in un numero controllato di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
 
-### 4. Forze Elettrostatiche (Interazione Coulombiana)
+### Forze Elettrostatiche (Interazione Coulombiana)
 * **Il fenomeno:** Dominanti nella Fase 1 sui grani microscopici di polvere, dove la carica elettrica accumulata (per fotoionizzazione o collisioni) genera attrazione o repulsione elettrostatica a corto raggio.
 * **Come funziona:** Regolate dalla legge di Coulomb, diventano del tutto trascurabili su scala macroscopica a causa della neutralità elettrica complessiva dei corpi massicci.
 * **Come lo modello:** Come per l'interazione gravitazionale, per gestire migliaia di corpi senza collassare a livello computazionale, il motore adotta un approccio gerarchico basato sull'algoritmo **Barnes-Hut**. Anzi, per ottimizzazione le due forze sono calcolate nello stesso ciclo di gestione dell'algoritmo.
 
 
 ## Architettura e Ottimizzazioni Numeriche
-Per garantire prestazioni elevate (mantenendo un alto numero di corpi attivi a frequenze di aggiornamento stabili), il motore adotta diverse soluzioni ingegneristiche:
+Per garantire prestazioni elevate, mantenendo un alto numero di corpi attivi, il motore adotta le seguenti soluzioni:
 
 * **Griglia Spaziale di Collisione (`CollisionGrid`):** La ricerca dei contatti non avviene per forza bruta, ma sfrutta una suddivisione spaziale a celle che riduce la complessità della rilevazione degli urti limitando la ricerca ai vicini prossimi.
 * **Concorrenza e Thread Safety:** Il calcolo delle forze e la risoluzione delle collisioni sono parallelizzati tramite Stream Java multi-core. Nelle sezioni critiche di interazione tra particelle, l'accesso concorrente è regolato da un ordinamento rigoroso basato sugli ID dei corpi per prevenire condizioni di deadlock.
@@ -98,27 +98,62 @@ Questo motore di simulazione si colloca nella Fase 4. L'architettura non risolve
 
 >Il motore include anche un modello di interazione coulombiana (disattivato di default, poiché ininfluente alle masse tipiche della Fase 4), predisposto come base per un'eventuale estensione futura verso le fasi di coagulazione della polvere.
 
-## Parametri di Simulazione (`SimulationConfig`)
-Tutti i parametri fisici e numerici della simulazione sono centralizzati come costanti statiche in `SimulationConfig.java`, e vanno modificati (e ricompilati) direttamente lì per sperimentare con scenari diversi. I principali:
 
-* **Corpi e tempo**: `N` (numero di particelle iniziali, default 15000), `DT` (passo di integrazione in secondi, default 3600s = 1 ora).
-* **Disco protoplanetario**: `DISK_INNER_RADIUS` / `DISK_OUTER_RADIUS` (estensione dell'anello iniziale, in AU), `INITIAL_VELOCITY_DISPERSION` (eccita eccentricità/inclinazioni iniziali).
-* **Materia**: `BASE_PARTICLE_MASS_MIN` / `BASE_PARTICLE_MASS_MAX` e `MASS_POWER_LAW_INDEX` (distribuzione a legge di potenza delle masse iniziali), `INITIAL_DUST_DENSITY`.
-* **Collisioni**: `GRAVITATIONAL_CAPTURE_MULTIPLIER` (soglia di fusione rispetto alla velocità di fuga reciproca) e `FRAGMENTATION_MULTIPLIER` (deve restare > 1.0, altrimenti la zona di rimbalzo scompare).
-* **Forze**: `ACTIVE_GRAVITY_MODEL` (`NEWTONIAN_CLAMPED` o `PLUMMER_SOFTENED`), `SOFTENING` (parametro ε), `ENABLE_ELECTROSTATIC_FORCE` (disattivato di default).
-* **Performance**: `USE_BARNES_HUT` e `BARNES_HUT_THETA` (angolo di apertura: più basso = più preciso ma più lento), `BARNES_HUT_THRESHOLD` (soglia di N sotto la quale si torna al calcolo diretto parallelo).
-* **Savepoint**: `AUTOSAVE_INTERVAL_SECONDS` (0 per disattivare il salvataggio automatico).
+## Parametri di Simulazione (`parameters.txt` / `SimulationParams`)
+Tutti i parametri fisici e numerici sono centralizzati in un file di testo `chiave=valore` caricato a runtime da `SimulationParams`, con due livelli di priorità:
 
-Non sono previsti file di configurazione esterni o CLI: la definizione dello scenario avviene tramite la modifica delle costanti e la ricompilazione, mentre la continuità della simulazione è garantita dal sistema di Savepoint per il salvataggio e ripristino dello stato.
+1. **`parameters.txt`**: nella root del progetto, contiene i valori di default per qualunque simulazione.
+2. **`simulations/<id>/parameters.txt`**: se presente, sovrascrive *solo* le chiavi che specifica, lasciando invariato tutto il resto. Utile per testare una variante senza toccare la configurazione di default né la simulazione principale in corso.
+
+I gruppi principali (vedi `parameters.txt` per l'elenco completo):
+
+* **Stella centrale**: `centralStarMass`, `centralStarRadius`, `centralStarDensity`.
+* **Disco iniziale**: `n` (numero di particelle), `diskInnerRadiusAU` / `diskOuterRadiusAU`, `initialParticleMassMin` / `initialParticleMassMax` e `massPowerLawIndex` (distribuzione a legge di potenza delle masse), `initialParticleDensity`, `initialVelocityDispersion`.
+* **Gravità**: `dt` (passo di integrazione, secondi), `softening` (parametro ε di Plummer), `activeGravityModel` (`NEWTONIAN_CLAMPED` o `PLUMMER_SOFTENED`), `useBarnesHut` / `barnesHutTheta` / `barnesHutThreshold` (soglia di N sotto cui si torna al calcolo diretto), `enableElectrostaticForce`.
+* **Collisioni**: `hillCaptureFraction` (frazione del raggio di Hill usata come raggio di cattura — vedi nota sotto), `gravitationalCaptureMultiplier`, `mergeVelocityFloor` (soglia minima di fusione indipendente dalla velocità di fuga), `fragmentationMultiplier`.
+* **Drag / Gas**: `dragReferenceDensity`, `gasDensityBase`, `gasProfileExponent`.
+* **Sessione / I/O**: `logSummaryEveryNSteps`, `screenshotEveryNSteps`, `fps`, `autosaveInterval`.
+
+
+## Organizzazione di una simulazione
+Ogni simulazione (identificata da un `simulationId`, passato come argomento all'avvio o generato automaticamente da timestamp) vive in una cartella propria, isolata dalle altre:
+
+```
+simulations/<simulationId>/
+  parameters.txt        # override opzionale, solo le chiavi da cambiare rispetto al default
+  savepoint.txt         # stato completo (particelle + metriche), aggiornato ad ogni autosave/chiusura
+  events.log            # log degli evnti, in append
+  runs.log              # una riga START/STOP per ogni sessione (avvio/chiusura del programma)
+  screenshots/          # PNG del pannello grafico, salvati periodicamente
+```
+Questo permette di far girare più simulazioni in parallelo (ognuna con i propri parametri, log e savepoint), riprenderle in sessioni successive senza confusione, e ricostruire a posteriori, dai due log, sia la cronologia fisica degli eventi sia il tempo reale effettivamente investito in ciascuna sessione.
+
 
 ## Savepoint: sessioni persistenti e simulazioni "live-editabili"
-Il file `savepoint.txt` (formato testuale, definito da `SAVEPOINT_FILE`) non serve solo a interrompere e riprendere una run lunga tra un riavvio e l'altro: essendo un formato testuale semplice (stato globale in chiave=valore, particelle in CSV con: posizione, velocità, massa, carica, densità, raggio iniziale, contatore fusioni), lo stato non è mai legato a una specifica versione compilata del motore. In pratica questo permette di **modificare il codice o i parametri, e ricompilare senza perdere la simulazione in corso**.
+Il file `savepoint.txt` (formato testuale: stato globale in chiave=valore, particelle in CSV con posizione, velocità, massa, carica, densità, raggio iniziale, contatore fusioni) non serve solo a interrompere e riprendere una run lunga tra un riavvio e l'altro: essendo un formato testuale semplice, lo stato non è mai legato a una specifica versione compilata del motore. In pratica questo permette di **modificare il codice o i parametri, e ricompilare senza perdere la simulazione in corso**.
 
 
 ## Avvio Simulazione
 ```bash
-mvn clean package  
-mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Main"
+mvn clean package
+
+# Simulazione standard (disco protoplanetario), ID generato automaticamente da timestamp:
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Stardust"
+
+# Con un ID esplicito (per riprendere una simulazione specifica o tenerne più di una separate):
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Stardust" -Dexec.args="mia-simulazione"
+
+# Demo con scenari predefiniti (sistema Terra-Luna, sistema solare con satelliti principali):
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.demo.SunEarthMoonDemo"
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.demo.SolarSystemDemo"
+```
+
+
+## Test
+Il motore fisico è coperto da una suite di test JUnit 5, organizzata su più livelli: formule isolate (gravità, raggio di Hill), esiti delle collisioni e leggi di conservazione, l'albero di Barnes-Hut confrontato con la somma diretta, l'integrazione orbitale a due e N corpi su periodi lunghi, `SimulationEngine` end-to-end (dispatch sequenziale/parallelo/Barnes-Hut, concorrenza nella risoluzione delle collisioni), ed altro.
+
+```bash
+mvn test
 ```
 
 

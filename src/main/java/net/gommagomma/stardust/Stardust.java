@@ -175,8 +175,8 @@ public class Stardust
         //particles.add(createProtoplanet(0.4, Math.PI, 1e25, 0.0, 3000.0));
 
         double exp = 1.0 - params.massPowerLawIndex;
-        double mMinExp = Math.pow(params.baseParticleMassMin, exp);
-        double mMaxExp = Math.pow(params.baseParticleMassMax, exp);
+        double mMinExp = Math.pow(params.initialParticleMassMin, exp);
+        double mMaxExp = Math.pow(params.initialParticleMassMax, exp);
         double r2Min = params.diskInnerRadius * params.diskInnerRadius;
         double r2Max = params.diskOuterRadius * params.diskOuterRadius;
 
@@ -203,7 +203,7 @@ public class Stardust
             double mass = Math.pow(mMinExp + u * (mMaxExp - mMinExp), 1.0 / exp);
             double charge = (rnd.nextBoolean() ? 1 : -1) * rnd.nextDouble() * params.initialMaxCharge;
 
-            particles.add(new Particle(new Vector3D(x, y, z), new Vector3D(vx, vy, vz), mass, charge, params.initialDustDensity));
+            particles.add(new Particle(new Vector3D(x, y, z), new Vector3D(vx, vy, vz), mass, charge, params.initialParticleDensity));
         }
 
         return particles;

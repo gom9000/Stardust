@@ -73,8 +73,8 @@ public class SimulationPanel extends JPanel {
         this.setBackground(Color.BLACK);
         this.setFocusable(true);
         
-        this.MIN_PARTICLE_RADIUS = Math.cbrt((3.0 * params.baseParticleMassMin)
-                / (4.0 * Math.PI * params.initialDustDensity));
+        this.MIN_PARTICLE_RADIUS = Math.cbrt((3.0 * params.initialParticleMassMin)
+                / (4.0 * Math.PI * params.initialParticleDensity));
 
         this.addKeyListener(new KeyAdapter() {
             @Override

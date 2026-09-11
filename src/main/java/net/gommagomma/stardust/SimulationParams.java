@@ -20,12 +20,12 @@ public class SimulationParams
 
 	// Disco iniziale
     public int n;
-    public double baseParticleMassMin;
-    public double baseParticleMassMax;
+    public double initialParticleMassMin;
+    public double initialParticleMassMax;
     public double diskInnerRadius;
     public double diskOuterRadius;
     public double initialVelocityDispersion;
-    public double initialDustDensity;
+    public double initialParticleDensity;
     public double initialMaxCharge;
     public double massPowerLawIndex;
 
@@ -43,7 +43,7 @@ public class SimulationParams
     public double hillCaptureFraction;
     public double hillAmplification;
     public double gravitationalCaptureMultiplier;
-    public double dustCohesionThreshold;
+    public double mergeVelocityFloor;
     public double fragmentationMultiplier;
 
     // Drag / Gas
@@ -58,6 +58,7 @@ public class SimulationParams
 
     // Sessione / I/O
     public int logSummaryEveryNSteps;
+    public int screenshotEveryNSteps;
     public int fps;
     public int autosaveInterval;
 
@@ -75,12 +76,12 @@ public class SimulationParams
      */
     public SimulationParams() {
         n = 15000;
-        baseParticleMassMin = 2e19;
-        baseParticleMassMax = 2e21;
+        initialParticleMassMin = 2e19;
+        initialParticleMassMax = 2e21;
         diskInnerRadius = 0.3 * PhysicsConstants.AU;
         diskOuterRadius = 0.7 * PhysicsConstants.AU;
         initialVelocityDispersion = 0.005;
-        initialDustDensity = 100.0;
+        initialParticleDensity = 100.0;
 
         dt = 300.0;
         softening = 1.0;
@@ -131,12 +132,12 @@ public class SimulationParams
 
             // --- Disco iniziale ---
             case "n":                              n = Integer.parseInt(value); break;
-            case "baseParticleMassMin":            baseParticleMassMin = Double.parseDouble(value); break;
-            case "baseParticleMassMax":            baseParticleMassMax = Double.parseDouble(value); break;
+            case "initialParticleMassMin":         initialParticleMassMin = Double.parseDouble(value); break;
+            case "initialParticleMassMax":         initialParticleMassMax = Double.parseDouble(value); break;
             case "diskInnerRadiusAU":              diskInnerRadius = Double.parseDouble(value)*PhysicsConstants.AU; break;
             case "diskOuterRadiusAU":              diskOuterRadius = Double.parseDouble(value)*PhysicsConstants.AU; break;
             case "initialVelocityDispersion":      initialVelocityDispersion = Double.parseDouble(value); break;
-            case "initialDustDensity":             initialDustDensity = Double.parseDouble(value); break;
+            case "initialParticleDensity":         initialParticleDensity = Double.parseDouble(value); break;
             case "initialMaxCharge":               initialMaxCharge = Double.parseDouble(value); break;
             case "massPowerLawIndex":              massPowerLawIndex = Double.parseDouble(value); break;
 
@@ -154,7 +155,7 @@ public class SimulationParams
             case "hillCaptureFraction":             hillCaptureFraction = Double.parseDouble(value); break;
             case "hillAmplification":               hillAmplification = Double.parseDouble(value); break;
             case "gravitationalCaptureMultiplier":  gravitationalCaptureMultiplier = Double.parseDouble(value); break;
-            case "dustCohesionThreshold":           dustCohesionThreshold = Double.parseDouble(value); break;
+            case "mergeVelocityFloor":              mergeVelocityFloor = Double.parseDouble(value); break;
             case "fragmentationMultiplier":         fragmentationMultiplier = Double.parseDouble(value); break;
 
             // --- Drag / Gas ---
@@ -169,6 +170,7 @@ public class SimulationParams
 
             // --- Sessione / I/O ---
             case "logSummaryEveryNSteps":           logSummaryEveryNSteps = Integer.parseInt(value); break;
+            case "screenshotEveryNSteps":           screenshotEveryNSteps = Integer.parseInt(value); break;
             case "fps":                             fps = Integer.parseInt(value); break;
             case "autosaveInterval":                autosaveInterval = Integer.parseInt(value); break;
 

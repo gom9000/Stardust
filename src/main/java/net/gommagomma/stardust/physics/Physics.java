@@ -281,7 +281,7 @@ public class Physics
 
         // Soglia di FUSIONE / CATTURA
         double captureThreshold = escapeVelocity * params.gravitationalCaptureMultiplier;
-        double effectiveCaptureThreshold = Math.max(params.dustCohesionThreshold, captureThreshold);
+        double effectiveCaptureThreshold = Math.max(params.mergeVelocityFloor, captureThreshold);
 
         // Soglia di FRAMMENTAZION
         double fragMultiplier = Math.max(1.0, params.fragmentationMultiplier);

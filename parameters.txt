@@ -5,12 +5,12 @@ centralStarDensity=1408.0           # kg/m^3
 
 # Disco iniziale
 n=15000                             # numero di particelle
-baseParticleMassMin=2e19            # kg
-baseParticleMassMax=2e21            # kg
 diskInnerRadiusAU=0.3               # AU
 diskOuterRadiusAU=0.7               # AU
+initialParticleMassMin=2e19         # kg
+initialParticleMassMax=2e21         # kg
 initialVelocityDispersion=0.005     # frazione della velocità orbitale kepleriana
-initialDustDensity=100.0            # kg/m^3
+initialParticleDensity=100.0        # kg/m^3
 initialMaxCharge=1e-9               # C
 massPowerLawIndex=1.2               # esponente distribuzione a potenza delle masse
 
@@ -28,7 +28,7 @@ enableElectrostaticForce=false
 hillCaptureFraction=0.20            # frazione del raggio di Hill usata come raggio di cattura
 hillAmplification=3.0               # fattore di amplificazione del raggio di Hill
 gravitationalCaptureMultiplier=1.0  # moltiplicatore sulla velocità di fuga per la soglia di fusione
-dustCohesionThreshold=2.5           # m/s, soglia minima di fusione indipendente dalla velocità di fuga
+mergeVelocityFloor=2.5              # m/s, soglia minima di fusione
 fragmentationMultiplier=2.0         # moltiplicatore sulla soglia di fusione per la soglia di frammentazione
 
 # Drag / Gas
@@ -43,5 +43,6 @@ gapMinClearingRatio=0.8             # frazione minima di svuotamento per disegna
 
 # Sessione / I/O
 logSummaryEveryNSteps=100           # ogni quanti step scrivere la riga STATO nel log
+screenshotEveryNSteps=1500          # ogni quanti step produrre lo screenshot del pannello grafico
 fps=15                              # frame al secondo del rendering
 autosaveInterval=300                # secondi tra un autosave e l'altro (0 = disattivato)

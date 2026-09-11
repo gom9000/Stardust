@@ -8,7 +8,7 @@ import net.gommagomma.stardust.Stardust;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 
-public class HierarchicalSystem
+public class SunEarthMoonDemo
 {
 	public static void main(String[] args) throws Exception
     {
