@@ -41,7 +41,7 @@ public class DtThetaDurationEnergyMatrix {
             double totalSimulatedSeconds = years * SECONDS_PER_YEAR;
 
             System.out.println();
-            System.out.printf("=== Orizzonte: %.1f anni simulati ===%n", years);
+            System.out.printf("=== Orizzonte: %.1f anni simulati, Particelle: %d ===%n", years, N);
             System.out.printf("%-6s %-6s | %10s | %11s %11s | %10s%n",
                     "dt", "theta", "step", "driftMax%", "driftFinale%", "t_wall(s)");
             System.out.println("-".repeat(70));
