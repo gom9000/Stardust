@@ -1,5 +1,6 @@
 # Stardust
-Un motore di simulazione a N-corpi che modella l'accrescimento gravitazionale durante la formazione dei pianeti.
+Un motore di simulazione a N-corpi per la dinamica gravitazionale planetaria, dall'accrescimento
+di un disco protoplanetario a sistemi orbitali semplici.
 
 ![screenshot](resources/screenshot.png)
 
