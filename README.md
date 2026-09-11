@@ -41,9 +41,11 @@ I corpi hanno masse sufficienti perché la mutua gravità domini su ogni altra i
 * **Il fenomeno:** Quando due corpi si intersecano nello spazio, l'esito dello scontro dipende dall'energia cinetica relativa e dalle proprietà meccaniche dei materiali: possono rimbalzare elasticamente/anelasticamente, fondersi (accrescimento) o frantumarsi in uno sciame di detriti.
 * **Come funziona:** L'energia d'urto nel sistema di riferimento del centro di massa viene confrontata con soglie di energia critica di legame gravitazionale e strutturale delle particelle coinvolte.
 * **Come lo modello:** 
-  * **Accrescimento / Cannibalismo:** Se la velocità relativa è inferiore alla velocità di fuga combinata, i corpi si fondono conservando la massa totale e ricalcolando il raggio equivalente (assumendo densità costante).
-  * **Rimbalzo:** Se l'urto è anelastico ma sotto la soglia di rottura, viene applicato un coefficiente di restituzione per calcolare le velocità post-impatto.
+  * **Accrescimento / Cannibalismo:** Se la velocità relativa è sotto la soglia di cattura, i corpi si fondono conservando la massa totale e ricalcolando il raggio equivalente (con una densità che si compatta progressivamente ad ogni fusione).
+  * **Rimbalzo:** Tra la soglia di cattura e quella di frammentazione, viene applicato un coefficiente di restituzione per calcolare le velocità post-impatto, conservando la quantità di moto.
   * **Frammentazione:** Se l'energia cinetica supera la soglia critica, il corpo maggiore viene disgregato in un numero controllato di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
+
+
 
 ### Forze Elettrostatiche (Interazione Coulombiana)
 * **Il fenomeno:** Dominanti nella Fase 1 sui grani microscopici di polvere, dove la carica elettrica accumulata (per fotoionizzazione o collisioni) genera attrazione o repulsione elettrostatica a corto raggio.
