@@ -159,6 +159,14 @@ Il motore fisico è coperto da una suite di test JUnit 5, organizzata su più li
 mvn test
 ```
 
+## Benchmark
+Nella cartella dei test sono presenti degli strumenti per misurare il compromesso reale tra `dt`, `theta` di Barnes-Hut e numero di particelle: quanto costa in tempo di calcolo, quanto si paga in fedeltà della forza e in deriva dell'energia. Producono tabelle.
+
+```bash
+mvn test-compile
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.benchmark.DtThetaDurationEnergyMatrix" -Dexec.classpathScope=test
+```
+
 
 ## About & License
 **Author**: Alessandro Fraschetti (gom9000).  

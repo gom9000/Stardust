@@ -11,14 +11,22 @@ public class RunLogger
 implements AutoCloseable
 {
     private final BufferedWriter writer;
+    private final boolean echoToConsole;
 
     public RunLogger(Path logFile) throws IOException {
+        this(logFile, true);
+    }
+
+    public RunLogger(Path logFile, boolean echoToConsole) throws IOException {
         Files.createDirectories(logFile.getParent());
         this.writer = Files.newBufferedWriter(logFile, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        this.echoToConsole = echoToConsole;
     }
 
     public synchronized void log(String line) {
-    	System.out.println(line);
+    	if (echoToConsole) {
+            System.out.println(line);
+        }
         try {
             writer.write(line);
             writer.newLine();
