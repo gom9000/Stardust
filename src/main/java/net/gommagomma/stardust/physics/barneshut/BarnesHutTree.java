@@ -55,8 +55,9 @@ public class BarnesHutTree {
 
         p.resetPotentialEnergy();
         ForceAccumulator acc = new ForceAccumulator();
+        double targetReach = physics.getCaptureReach(p); // calcolato UNA VOLTA per bersaglio, non per ogni foglia visitata
 
-        root.accumulateForce(p, thetaSq, acc, true);
+        root.accumulateForce(p, thetaSq, acc, true, targetReach);
 
         p.addPotentialEnergy(acc.potentialEnergy);
 
@@ -300,7 +301,7 @@ public class BarnesHutTree {
             }
         }
 
-        void accumulateForce(Particle target, double thetaSq, ForceAccumulator acc, boolean containsTarget) {
+        void accumulateForce(Particle target, double thetaSq, ForceAccumulator acc, boolean containsTarget, double targetReach) {
             if (totalMass == 0.0 && (!params.enableElectrostaticForce || totalCharge == 0.0)) {
                 return;
             }
@@ -308,12 +309,12 @@ public class BarnesHutTree {
             if (isLeaf()) {
                 if (single != null) {
                     if (single != target && single.isAlive()) {
-                        addDirect(target, single, acc);
+                        addDirect(target, single, acc, targetReach);
                     }
                 } else if (overflow != null) {
                     for (Particle other : overflow) {
                         if (other != null && other != target && other.isAlive()) {
-                            addDirect(target, other, acc);
+                            addDirect(target, other, acc, targetReach);
                         }
                     }
                 }
@@ -374,11 +375,11 @@ public class BarnesHutTree {
                 }
 
                 boolean childContainsTarget = containsTarget && i == targetOctant;
-                child.accumulateForce(target, thetaSq, acc, childContainsTarget);
+                child.accumulateForce(target, thetaSq, acc, childContainsTarget, targetReach);
             }
         }
 
-        private void addDirect(Particle target, Particle other, ForceAccumulator acc) {
+        private void addDirect(Particle target, Particle other, ForceAccumulator acc, double targetReach) {
             Vector3D f = physics.calculateGravityAndElectrostaticForce(target, other);
             acc.add(f.getX(), f.getY(), f.getZ());
 
@@ -394,9 +395,14 @@ public class BarnesHutTree {
                 acc.addPotential(gPotential + cPotential);
             }
 
-            // Courant
+            // Courant PREVENTIVO: questa è l'unica sede dove esiste una coppia ESATTA (non
+            // approssimata come nodo lontano) -- esattamente le coppie che contano per un
+            // controllo di prossimità, calcolato qui a costo pressoché nullo perché la distanza
+            // e le posizioni sono già in mano per il calcolo della forza appena fatto sopra.
+            // targetReach e' precalcolato una sola volta per bersaglio (vedi computeForce):
+            // solo other.getCaptureReach() viene ancora calcolato qui, una chiamata invece di due.
             double sumRadii = target.getRadius() + other.getRadius();
-            if (sumRadii > 0 && dist <= physics.getCaptureReach(target) + physics.getCaptureReach(other)) {
+            if (sumRadii > 0 && dist <= targetReach + physics.getCaptureReach(other)) {
                 double relSpeed = target.getVelocity().subtract(other.getVelocity()).magnitude();
                 acc.updateMaxCourant((relSpeed * params.dt) / sumRadii);
             }

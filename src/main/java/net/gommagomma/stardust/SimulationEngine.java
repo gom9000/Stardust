@@ -14,7 +14,7 @@ import net.gommagomma.stardust.physics.collision.CollisionResult;
 public class SimulationEngine {
 	private final SimulationParams params;
 	private final Physics physics;
-	private final CourantMonitor courantMonitor = new CourantMonitor();
+	private final CourantMonitor preemptiveCourant = new CourantMonitor();
     private final List<Particle> particles;
     private final SimulationMetrics metrics;
     private final RunLogger logger;
@@ -41,7 +41,7 @@ public class SimulationEngine {
     /** L'oggetto condiviso stesso, non un valore copiato: chi ha bisogno del Courant preventivo
      *  (diagnostica, una futura logica di dt adattivo, test) legge sempre lo stato più recente
      *  senza che SimulationEngine debba inoltrarlo esplicitamente ad ogni consumatore. */
-    public CourantMonitor getCourantMonitor() { return courantMonitor; }
+    public CourantMonitor getPreemptiveCourantMonitor() { return preemptiveCourant; }
     
     // Costruttore per una nuova simulazione
     public SimulationEngine(List<Particle> particles, RunLogger logger, SimulationParams params) {
@@ -112,7 +112,7 @@ public class SimulationEngine {
         // per evitare che un singolo caso patologico faccia collassare dt quasi a zero. Nessuno
         // stato da ripristinare: al prossimo step, con un Courant fresco, si riparte da dt nominale.
         double effectiveDt = params.dt;
-        double courantThisStep = courantMonitor.getMax();
+        double courantThisStep = preemptiveCourant.getMax();
         boolean dtWasReduced = false;
         if (courantThisStep > params.courantSafetyThreshold) {
             double scale = params.courantSafetyThreshold / courantThisStep;
@@ -165,10 +165,13 @@ public class SimulationEngine {
 
     private void computeForcesSequential() {
         int numParticles = particles.size();
-        courantMonitor.reset();
+        preemptiveCourant.reset();
 
+        double[] reachLocal = new double[numParticles];
         for (int i = 0; i < numParticles; i++) {
-            particles.get(i).resetPotentialEnergy();
+            Particle p = particles.get(i);
+            p.resetPotentialEnergy();
+            reachLocal[i] = physics.getCaptureReach(p); // calcolato UNA VOLTA per particella, non per coppia
         }
 
         for (int i = 0; i < numParticles; i++) {
@@ -189,17 +192,16 @@ public class SimulationEngine {
                 }
 
                 // Courant PREVENTIVO: la coppia e la sua distanza sono già in mano dal calcolo
-                // della forza appena fatto sopra, nessun dato in più da recuperare. Va pero'
-                // filtrato per prossimita' reale (raggio di cattura combinato) -- altrimenti due
-                // particelle su lati opposti del disco, con velocita' relativa alta per puro
-                // shear kepleriano ma MAI destinate a incontrarsi, generano un Courant enorme e
-                // fisicamente privo di senso (verificato: un caso con distanza 1430x il raggio
-                // di cattura combinato dava Courant=26, un falso allarme).
-                if (dist <= physics.getCaptureReach(p1) + physics.getCaptureReach(p2)) {
+                // della forza appena fatto sopra, nessun dato in più da recuperare. Filtrato per
+                // prossimità reale usando il raggio di cattura PRECALCOLATO (reachLocal), non
+                // ricalcolato ad ogni coppia -- physics.getCaptureReach() fa una radice cubica,
+                // chiamarlo O(N^2) volte invece di O(N) e' un costo reale e misurabile, non
+                // trascurabile come avevo assunto la prima volta.
+                if (dist <= reachLocal[i] + reachLocal[j]) {
                     double sumRadii = p1.getRadius() + p2.getRadius();
                     if (sumRadii > 0) {
                         double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-                        courantMonitor.update((relSpeed * params.dt) / sumRadii);
+                        preemptiveCourant.update((relSpeed * params.dt) / sumRadii);
                     }
                 }
             }
@@ -207,17 +209,24 @@ public class SimulationEngine {
     }
 
     private void computeForcesParallel() {
-    	particles.parallelStream().forEach(Particle::resetPotentialEnergy);
-    	courantMonitor.reset();
+        int numParticles = particles.size();
+    	preemptiveCourant.reset();
+
+        double[] reachLocal = new double[numParticles];
+        java.util.stream.IntStream.range(0, numParticles).parallel().forEach(i -> {
+            Particle p = particles.get(i);
+            p.resetPotentialEnergy();
+            reachLocal[i] = physics.getCaptureReach(p);
+        });
     	
-        java.util.stream.IntStream.range(0, particles.size()).parallel().forEach(i -> {
+        java.util.stream.IntStream.range(0, numParticles).parallel().forEach(i -> {
             double fx = 0.0, fy = 0.0, fz = 0.0;
             double potentialSum = 0.0;
             double localMaxCourant = 0.0; // accumulo locale al thread: un solo update() atomico a fine ciclo, non uno per coppia
             
             Particle p1 = particles.get(i);
 
-            for (int j = 0; j < particles.size(); j++) {
+            for (int j = 0; j < numParticles; j++) {
                 if (i == j) continue;
                 Particle p2 = particles.get(j);
                 Vector3D f = physics.calculateGravityAndElectrostaticForce(p1, p2);
@@ -232,7 +241,7 @@ public class SimulationEngine {
                 }
 
                 double sumRadii = p1.getRadius() + p2.getRadius();
-                if (sumRadii > 0 && dist <= physics.getCaptureReach(p1) + physics.getCaptureReach(p2)) {
+                if (sumRadii > 0 && dist <= reachLocal[i] + reachLocal[j]) {
                     double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
                     double courant = (relSpeed * params.dt) / sumRadii;
                     if (courant > localMaxCourant) localMaxCourant = courant;
@@ -241,18 +250,18 @@ public class SimulationEngine {
 
             p1.addForce(new Vector3D(fx, fy, fz));
             p1.addPotentialEnergy(potentialSum);
-            courantMonitor.update(localMaxCourant);
+            preemptiveCourant.update(localMaxCourant);
         });
     }
 
     private void computeForcesBarnesHut() {
         BarnesHutTree tree = new BarnesHutTree(particles, params, physics);
-        courantMonitor.reset();
+        preemptiveCourant.reset();
         int n = particles.size();
         java.util.stream.IntStream.range(0, n).parallel().forEach(i -> {
             Particle p = particles.get(i);
             p.resetPotentialEnergy();
-            p.addForce(tree.computeForce(p, courantMonitor));
+            p.addForce(tree.computeForce(p, preemptiveCourant));
         });
     }
 
@@ -485,7 +494,7 @@ public class SimulationEngine {
         logger.log(String.format(
                 "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant: %.2f | dt: %.1fs%s | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms",
                 metrics.getSimulationTime(), totalMechanicalEnergy,
-                aliveCount, courantMonitor.getMax(), effectiveDt, (dtWasReduced ? " [RIDOTTO]" : ""), totalMass, maxMass, maxRadius, 
+                aliveCount, preemptiveCourant.getMax(), effectiveDt, (dtWasReduced ? " [RIDOTTO]" : ""), totalMass, maxMass, maxRadius, 
                 metrics.getTotalMerges(), metrics.getTotalBounces(), metrics.getTotalFragmentations(), metrics.getTotalStarFalls(), metrics.getTotalEscapes(), 
                 forceMs, integrationMs, collisionMs));
     }

@@ -40,8 +40,8 @@ public class SimulationParams
     public boolean enableElectrostaticForce;
 
     // Timestep adattivo (basato sul Courant preventivo)
-    public double courantSafetyThreshold;
-    public double minDtFraction;
+    public double courantSafetyThreshold = 0.5; // sopra questa soglia, dt viene ridotto per lo step corrente
+    public double minDtFraction = 0.05;         // pavimento: dt non scende mai sotto questa frazione del valore nominale
 
     // Collisioni
     public double hillCaptureFraction;
