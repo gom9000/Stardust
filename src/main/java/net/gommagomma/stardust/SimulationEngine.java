@@ -87,6 +87,8 @@ public class SimulationEngine {
     public void step() {
         long t0 = System.nanoTime();
 
+        preemptiveCourant.setNominalDt(params.dt); // salva il dt configurato, prima di qualunque riduzione adattiva
+
         // Forze: gravità stella + densità gas
         for (Particle p : particles) {
             p.resetForce();
@@ -94,7 +96,8 @@ public class SimulationEngine {
             p.addForce(physics.calculateDrag(p));
         }
 
-        // Forze N-body: gravità + Elettrostatica
+        // Forze N-body: gravità + Elettrostatica -- il Courant preventivo qui usa ancora
+        // params.dt nominale, dato che la mutazione avviene solo dopo, più sotto.
         int n = particles.size();
         if (params.useBarnesHut && n >= params.barnesHutThreshold) {
             computeForcesBarnesHut();
@@ -105,33 +108,36 @@ public class SimulationEngine {
         }
         long t1 = System.nanoTime();
 
-        // Timestep adattivo: il Courant preventivo appena calcolato (con params.dt nominale) dice
-        // se questo step, integrato per intero, sarebbe troppo grezzo per l'incontro più ravvicinato
-        // visto durante le forze. Se sì, si riduce dt SOLO per questo step -- proporzionalmente,
-        // cosi' da riportare il Courant atteso esattamente alla soglia -- con un pavimento minimo
-        // per evitare che un singolo caso patologico faccia collassare dt quasi a zero. Nessuno
-        // stato da ripristinare: al prossimo step, con un Courant fresco, si riparte da dt nominale.
-        double effectiveDt = params.dt;
+        // Timestep adattivo: il Courant preventivo appena calcolato (con dt nominale) dice se
+        // questo step, integrato per intero, sarebbe troppo grezzo per l'incontro più ravvicinato
+        // visto durante le forze. Il valore effettivo viene scritto DIRETTAMENTE in params.dt --
+        // Physics, la griglia di collisione, il pannello grafico continuano a leggere params.dt
+        // esattamente come sempre, nessuna firma cambiata. Il dt nominale (per poter ripristinare
+        // a fine step) vive in preemptiveCourant, non in una variabile locale: e' l'oggetto di
+        // appoggio pensato apposta per essere raggiungibile da ogni parte del motore.
+        double nominalDt = preemptiveCourant.getNominalDt();
+        double effectiveDt = nominalDt;
         double courantThisStep = preemptiveCourant.getMax();
         boolean dtWasReduced = false;
         if (courantThisStep > params.courantSafetyThreshold) {
             double scale = params.courantSafetyThreshold / courantThisStep;
-            effectiveDt = Math.max(params.dt * scale, params.dt * params.minDtFraction);
-            dtWasReduced = (effectiveDt < params.dt);
+            effectiveDt = Math.max(nominalDt * scale, nominalDt * params.minDtFraction);
+            dtWasReduced = (effectiveDt < nominalDt);
         }
+        params.dt = effectiveDt;
 
         // Aggiornamento cinematico e condizioni ai bordi
         for (Particle p : particles) {
         	if (p.isAlive()) {
-                p.update(effectiveDt);
+                p.update(params.dt);
                 checkParticleBoundaries(p, params.centralStarRadius, params.diskOuterRadius * 3.0);
             }
         }
         long t2 = System.nanoTime();
 
-        // Controllo Collisioni e Fusione
+        // Controllo Collisioni e Fusione (legge params.dt, gia' al valore effettivo di questo step)
         synchronized (particles) {
-            handleCollisions(effectiveDt);
+            handleCollisions();
         }
         long t3 = System.nanoTime();
 
@@ -144,11 +150,13 @@ public class SimulationEngine {
         }
 
         // Aggiornamento per step successivo: il tempo simulato avanza della quantita' REALMENTE
-        // usata in questo step, non del valore nominale, altrimenti orologio simulato e stato
-        // fisico delle particelle andrebbero fuori sincrono quando dt viene ridotto.
+        // usata in questo step, non del valore nominale.
         metrics.addTime(effectiveDt);
         metrics.incrementStep();
         updateTpsCounter();
+
+        // Ripristina il valore nominale prima di uscire dallo step.
+        params.dt = nominalDt;
     }
 
     private void updateTpsCounter() {
@@ -265,14 +273,14 @@ public class SimulationEngine {
         });
     }
 
-    private void handleCollisions(double dt) {
+    private void handleCollisions() {
         int n = particles.size();
         if (n == 0) return;
 
         newFragmentsBuffer.clear();
         
         // Preparazione griglia spaziale
-        updateCollisionGrid(n, dt);
+        updateCollisionGrid(n);
 
         // Ricerca candidati e risoluzione in parallelo
         java.util.stream.IntStream.range(0, n).parallel().forEach(i -> {
@@ -283,7 +291,7 @@ public class SimulationEngine {
             localCandidates.clear();
 
             double ownSpeed = p1.getVelocity().magnitude();
-            double queryRadius = reach[i] + maxReach + ownSpeed * dt;
+            double queryRadius = reach[i] + maxReach + ownSpeed * params.dt;
 
             collisionGrid.queryNeighbors(p1.getPosition(), queryRadius, localCandidates);
 
@@ -308,7 +316,7 @@ public class SimulationEngine {
         }
     }
 
-    private void updateCollisionGrid(int n, double dt) {
+    private void updateCollisionGrid(int n) {
         if (reach.length < n) {
             reach = new double[n];
         }
@@ -323,7 +331,7 @@ public class SimulationEngine {
             Particle p = particles.get(i);
             reach[i] = physics.getCaptureReach(p);
             maxReach = Math.max(maxReach, reach[i]);
-            maxDisplacement = Math.max(maxDisplacement, p.getVelocity().magnitude() * dt);
+            maxDisplacement = Math.max(maxDisplacement, p.getVelocity().magnitude() * params.dt);
         }
 
         // Dimensionata cosi', la cella e' sempre confrontabile con il piu' grande queryRadius

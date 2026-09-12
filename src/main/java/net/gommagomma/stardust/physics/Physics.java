@@ -183,12 +183,71 @@ public class Physics
     //
     // RAGGI E GEOMETRIA DI CATTURA
     //
+    // Tre concetti fisicamente distinti convivevano qui sotto un solo nome ("raggio di cattura"),
+    // pur avendo significato e scala molto diversi:
+    //
+    //   1. Raggio di collisione fisica  -- getPhysicalCollisionRadius: le superfici si toccano o no,
+    //      indipendente da qualunque velocità o massa in gioco.
+    //   2. Raggio di focalizzazione gravitazionale -- getGravitationalFocusingRadius: la vera
+    //      distanza entro cui due corpi possono ANCORA scontrarsi pur con un parametro d'impatto
+    //      superiore alla somma dei raggi fisici, perché la mutua attrazione curva le traiettorie
+    //      durante l'avvicinamento (formula standard di Safronov). Dipende dalla velocità relativa
+    //      ed è sempre ancorata al raggio fisico di contatto -- non ha nulla a che fare con la
+    //      distanza dalla stella.
+    //   3. Sfera di Hill -- getHillRadius: la regione entro cui la gravità del corpo domina su
+    //      quella della stella. Risponde a una domanda diversa ("un satellite qui resta in orbita
+    //      stabile?"), non "questi due corpi collidono?".
+    //
+    // getEffectiveCaptureRadius, di fatto, usa oggi una frazione della sfera di Hill (3) come se
+    // fosse il raggio di focalizzazione gravitazionale (2) -- un'amplificazione artificiale e
+    // volutamente non fisica, tenuta così com'è (hillCaptureFraction) per velocizzare
+    // l'accrescimento esplorativo: con una vera formula di focalizzazione (ancorata al raggio
+    // fisico) l'accrescimento planetesimale richiederebbe tempi di calcolo enormemente più lunghi
+    // (è la "barriera dei metri" descritta nel README). getGravitationalFocusingRadius è fornito
+    // qui come riferimento fisicamente corretto e testabile, ma NON è collegato a checkCollision/
+    // evaluateCollision: cambiare quel collegamento cambierebbe il comportamento della simulazione,
+    // non solo la sua chiarezza concettuale.
+    //
+
+    /** Raggio di collisione puramente fisico: la somma dei raggi reali dei due corpi. */
+    public double getPhysicalCollisionRadius(Particle p1, Particle p2) {
+        return p1.getRadius() + p2.getRadius();
+    }
+
+    /**
+     * Raggio di cattura per focalizzazione gravitazionale (formula di Safronov): la distanza
+     * entro cui due corpi collidono davvero tenendo conto della curvatura delle traiettorie
+     * indotta dalla mutua attrazione durante l'avvicinamento, non solo del contatto geometrico.
+     * A parità di massa, più bassa è la velocità relativa rispetto alla velocità di fuga calcolata
+     * al contatto, più il raggio effettivo si allarga oltre la semplice somma dei raggi fisici.
+     */
+    public double getGravitationalFocusingRadius(Particle p1, Particle p2) {
+        double contactDist = getPhysicalCollisionRadius(p1, p2);
+        if (contactDist <= 0.0) return 0.0;
+
+        double totalMass = p1.getMass() + p2.getMass();
+        double vEsc = Math.sqrt((2.0 * PhysicsConstants.G * totalMass) / contactDist);
+
+        double vRel = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
+        if (vRel <= 0.0) return Double.POSITIVE_INFINITY; // avvicinamento a velocità nulla: cattura garantita
+
+        double focusingFactor = Math.sqrt(1.0 + (vEsc * vEsc) / (vRel * vRel));
+        return contactDist * focusingFactor;
+    }
 
     public double getHillRadius(Particle p) {
         double r = p.getPosition().magnitude();
         return r * Math.cbrt(p.getMass() / (3.0 * params.centralStarMass));
     }
 
+    /**
+     * Raggio di cattura EFFETTIVAMENTE usato da checkCollision/evaluateCollision/resolveBounce.
+     * ATTENZIONE: nonostante il nome, non implementa la focalizzazione gravitazionale reale
+     * (getGravitationalFocusingRadius) -- usa una frazione (hillCaptureFraction) della sfera di
+     * Hill come amplificazione artificiale, per accelerare l'accrescimento planetesimale a scapito
+     * del realismo fisico. Comportamento invariato rispetto a prima di questa nota: la formula è
+     * identica, solo documentata con precisione.
+     */
     public double getEffectiveCaptureRadius(Particle p) {
         double hillCapture = getHillRadius(p) * params.hillCaptureFraction;
         return Math.max(p.getRadius(), hillCapture);
@@ -203,20 +262,6 @@ public class Physics
     // COLLISIONI E RISOLUZIONE
     //
 
-    /**
-     * Determina se due particelle sono abbastanza vicine da collidere nel timestep dt.
-     */
-    public boolean checkCollision2(Particle p1, Particle p2) {
-        double distance = p1.getPosition().distanceTo(p2.getPosition());
-        double combinedCaptureRadius = getEffectiveCaptureRadius(p1) + getEffectiveCaptureRadius(p2);
-        
-        double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-        double sweptBuffer = relSpeed * params.dt;
-
-        return distance <= (combinedCaptureRadius + sweptBuffer);
-    }
-
-    
     // Controllo di collisione continua (CCD) sul segmento REALMENTE percorso
     // in questo step: da previousPosition (inizio step) a position (fine step),
     // a velocità costante (coerente con l'integrazione Euler-Cromer).
