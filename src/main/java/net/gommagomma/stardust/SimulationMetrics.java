@@ -13,9 +13,6 @@ public class SimulationMetrics
     private long totalEscapes;
     private long totalStarFalls;
 
-    // Metriche di stabilità
-    private double maxCourantObserved;
-
 
     // Costruttore per una nuova simulazione
     public SimulationMetrics() {
@@ -27,8 +24,6 @@ public class SimulationMetrics
         this.totalFragmentations = 0;
         this.totalEscapes = 0;
         this.totalStarFalls = 0;
- 
-        this.maxCourantObserved = 0.0;
     }
 
 
@@ -58,12 +53,6 @@ public class SimulationMetrics
     public synchronized long recordEscape() { return ++totalEscapes; }
     public synchronized long recordStarFall() { return ++totalStarFalls; }
 
-    public synchronized void updateMaxCourant(double courant) {
-        if (courant > maxCourantObserved) {
-            maxCourantObserved = courant;
-        }
-    }
-
     public synchronized double getSimulationTime() { return simulationTime; }
     public synchronized long getStepCount() { return stepCount; }
     public synchronized long getTotalMerges() { return totalMerges; }
@@ -71,5 +60,4 @@ public class SimulationMetrics
     public synchronized long getTotalFragmentations() { return totalFragmentations; }
     public synchronized long getTotalEscapes() { return totalEscapes; }
     public synchronized long getTotalStarFalls() { return totalStarFalls; }
-    public synchronized double getMaxCourantObserved() { return maxCourantObserved; }
 }

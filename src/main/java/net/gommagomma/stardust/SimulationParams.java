@@ -39,6 +39,10 @@ public class SimulationParams
     public GravityModel activeGravityModel = GravityModel.NEWTONIAN_CLAMPED;
     public boolean enableElectrostaticForce;
 
+    // Timestep adattivo (basato sul Courant preventivo)
+    public double courantSafetyThreshold;
+    public double minDtFraction;
+
     // Collisioni
     public double hillCaptureFraction;
     public double hillAmplification;
@@ -71,8 +75,12 @@ public class SimulationParams
     }
 
     /**
-     * Costruttore per i test: nessun file coinvolto, stessi valori di default di parameters.txt,
-     * cosi' i test restano riproducibili senza dipendere dal filesystem.
+     * Costruttore "vuoto": non tocca il filesystem, non duplica alcun valore di default -- i campi
+     * restano ai valori grezzi del linguaggio (0 / false), a parte quelli con un inizializzatore di
+     * campo esplicito qui sopra (centralStarMass, centralStarRadius, centralStarDensity). Pensato
+     * per essere usato SOLO tramite una classe di supporto lato test (es. TestParams.defaults())
+     * che popola esplicitamente i valori che servono -- non per essere usato direttamente senza
+     * impostare i campi necessari, altrimenti si ottiene una simulazione degenere (dt=0, ecc.).
      */
     public SimulationParams() {
         centralStar = new Particle(new Vector3D(0, 0, 0), new Vector3D(0, 0, 0), centralStarMass, 0.0, centralStarDensity);
@@ -135,6 +143,8 @@ public class SimulationParams
             case "gravitationalCaptureMultiplier":  gravitationalCaptureMultiplier = Double.parseDouble(value); break;
             case "mergeVelocityFloor":              mergeVelocityFloor = Double.parseDouble(value); break;
             case "fragmentationMultiplier":         fragmentationMultiplier = Double.parseDouble(value); break;
+            case "courantSafetyThreshold":          courantSafetyThreshold = Double.parseDouble(value); break;
+            case "minDtFraction":                   minDtFraction = Double.parseDouble(value); break;
 
             // --- Drag / Gas ---
             case "dragReferenceDensity":            dragReferenceDensity = Double.parseDouble(value); break;

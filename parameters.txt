@@ -24,6 +24,10 @@ barnesHutThreshold=400              # N minimo per attivare Barnes-Hut
 activeGravityModel=NEWTONIAN_CLAMPED  # NEWTONIAN_CLAMPED oppure PLUMMER_SOFTENED
 enableElectrostaticForce=false
 
+# Timestep adattivo (basato sul Courant preventivo)
+courantSafetyThreshold=0.5          # sopra questa soglia, dt viene ridotto per lo step corrente
+minDtFraction=0.05                  # pavimento: dt non scende mai sotto questa frazione del valore nominale
+
 # Collisioni
 hillCaptureFraction=0.20            # frazione del raggio di Hill usata come raggio di cattura
 hillAmplification=3.0               # fattore di amplificazione del raggio di Hill

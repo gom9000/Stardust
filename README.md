@@ -45,8 +45,6 @@ I corpi hanno masse sufficienti perché la mutua gravità domini su ogni altra i
   * **Rimbalzo:** Tra la soglia di cattura e quella di frammentazione, viene applicato un coefficiente di restituzione per calcolare le velocità post-impatto, conservando la quantità di moto.
   * **Frammentazione:** Se l'energia cinetica supera la soglia critica, il corpo maggiore viene disgregato in un numero controllato di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
 
-
-
 ### Forze Elettrostatiche (Interazione Coulombiana)
 * **Il fenomeno:** Dominanti nella Fase 1 sui grani microscopici di polvere, dove la carica elettrica accumulata (per fotoionizzazione o collisioni) genera attrazione o repulsione elettrostatica a corto raggio.
 * **Come funziona:** Regolate dalla legge di Coulomb, diventano del tutto trascurabili su scala macroscopica a causa della neutralità elettrica complessiva dei corpi massicci.
@@ -92,6 +90,10 @@ Strutture dati geometriche gerarchiche utilizzate negli algoritmi di N-corpi (co
 
 #### Algoritmo Euler-Cromer (Eulero Semi-Implicito)
 Algoritmo di integrazione numerica del primo ordine per equazioni differenziali ordinarie (ODE), impiegato nella simulazione per aggiornare posizioni e velocità. A differenza del metodo di Eulero esplicito, calcola prima la velocità aggiornata e utilizza immediatamente quest'ultima per calcolare la nuova posizione.
+
+#### Numero di Courant
+Rapporto adimensionale tra quanto un corpo si sposta durante un singolo passo di integrazione e una scala di lunghezza fisica rilevante (qui, la somma dei raggi dei due corpi coinvolti in un potenziale incontro ravvicinato). Un valore superiore a 1 segnala che il passo temporale è troppo grande rispetto alla scala del fenomeno che si vuole risolvere: la posizione avanza "a salti" più ampi della dimensione stessa dei corpi, col rischio che due particelle si attraversino o si scontrino senza che l'integrazione se ne accorga nello step esatto in cui avviene l'incontro.
+
 
 ---
 

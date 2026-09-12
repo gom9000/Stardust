@@ -3,6 +3,7 @@ package net.gommagomma.stardust.physics.barneshut;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.gommagomma.stardust.CourantMonitor;
 import net.gommagomma.stardust.PhysicsConstants;
 import net.gommagomma.stardust.SimulationParams;
 import net.gommagomma.stardust.math.Vector3D;
@@ -41,7 +42,13 @@ public class BarnesHutTree {
         root.computeAggregates();
     }
 
+    /** Firma invariata: tutti i chiamanti esistenti (test compresi) continuano a funzionare senza
+     *  modifiche -- il Courant preventivo è opzionale, non un requisito imposto a chi non lo usa. */
     public Vector3D computeForce(Particle p) {
+        return computeForce(p, null);
+    }
+
+    public Vector3D computeForce(Particle p, CourantMonitor courantMonitor) {
         if (p == null || !p.isAlive()) {
             return new Vector3D(0, 0, 0);
         }
@@ -52,6 +59,10 @@ public class BarnesHutTree {
         root.accumulateForce(p, thetaSq, acc, true);
 
         p.addPotentialEnergy(acc.potentialEnergy);
+
+        if (courantMonitor != null) {
+            courantMonitor.update(acc.maxCourant);
+        }
 
         return new Vector3D(acc.fx, acc.fy, acc.fz);
     }
@@ -111,6 +122,7 @@ public class BarnesHutTree {
         double fy = 0.0;
         double fz = 0.0;
         double potentialEnergy = 0.0;
+        double maxCourant = 0.0;
 
         void add(double x, double y, double z) {
             this.fx += x;
@@ -120,6 +132,10 @@ public class BarnesHutTree {
 
         void addPotential(double p) {
             this.potentialEnergy += p;
+        }
+
+        void updateMaxCourant(double candidate) {
+            if (candidate > maxCourant) maxCourant = candidate;
         }
     }
 
@@ -376,6 +392,13 @@ public class BarnesHutTree {
                 }
 
                 acc.addPotential(gPotential + cPotential);
+            }
+
+            // Courant
+            double sumRadii = target.getRadius() + other.getRadius();
+            if (sumRadii > 0 && dist <= physics.getCaptureReach(target) + physics.getCaptureReach(other)) {
+                double relSpeed = target.getVelocity().subtract(other.getVelocity()).magnitude();
+                acc.updateMaxCourant((relSpeed * params.dt) / sumRadii);
             }
         }
     }
