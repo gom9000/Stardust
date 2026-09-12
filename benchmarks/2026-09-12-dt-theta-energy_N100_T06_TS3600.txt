@@ -1,0 +1,17 @@
+# Benchmark: dt x theta, drift di energia su orizzonte 100 anni
+# Data: 2026-09-11
+# Strumento: DtThetaDurationEnergyMatrix (N=100, DT=3600, thet=0.6, drag disattivato, hillCaptureFraction=1e-6)
+# Nota: test ripetuto 5 volte stesso seed (7) + 1 con seed differente (4).
+
+=== Orizzonte: 100,0 anni simulati, Particelle: 100 ===
+dt     theta  |       step |   driftMax% driftFinale% |  t_wall(s)
+----------------------------------------------------------------------
+  [3600s, 100,0 anni -> 876.600 step stimati]
+3600   0,6    |     876600 |      0,0865      0,0845 |      85,63
+3600   0,6    |     876600 |      0,0865      0,0845 |      84,44
+3600   0,6    |     876600 |      0,0865      0,0845 |      84,99
+3600   0,6    |     876600 |      0,0865      0,0845 |      84,31
+3600   0,6    |     876600 |      0,0865      0,0845 |      85,63
+3600   0,6    |     876600 |      0,0325      0,0529 |      83,75
+
+
