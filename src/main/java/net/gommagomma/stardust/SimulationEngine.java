@@ -14,7 +14,7 @@ import net.gommagomma.stardust.physics.collision.CollisionResult;
 public class SimulationEngine {
 	private final SimulationParams params;
 	private final Physics physics;
-	private final CourantMonitor preemptiveCourant = new CourantMonitor();
+	private final CourantMonitor courantMonitor = new CourantMonitor();
     private final List<Particle> particles;
     private final SimulationMetrics metrics;
     private final RunLogger logger;
@@ -38,10 +38,7 @@ public class SimulationEngine {
     public void setPaused(boolean paused) { this.paused = paused; }
     public void togglePause() { this.paused = !this.paused; }
 
-    /** L'oggetto condiviso stesso, non un valore copiato: chi ha bisogno del Courant preventivo
-     *  (diagnostica, una futura logica di dt adattivo, test) legge sempre lo stato più recente
-     *  senza che SimulationEngine debba inoltrarlo esplicitamente ad ogni consumatore. */
-    public CourantMonitor getPreemptiveCourantMonitor() { return preemptiveCourant; }
+    public CourantMonitor getCourantMonitor() { return courantMonitor; }
     
     // Costruttore per una nuova simulazione
     public SimulationEngine(List<Particle> particles, RunLogger logger, SimulationParams params) {
@@ -87,7 +84,7 @@ public class SimulationEngine {
     public void step() {
         long t0 = System.nanoTime();
 
-        preemptiveCourant.setNominalDt(params.dt); // salva il dt configurato, prima di qualunque riduzione adattiva
+        courantMonitor.setNominalDt(params.dt); // salva il dt configurato
 
         // Forze: gravità stella + densità gas
         for (Particle p : particles) {
@@ -96,33 +93,29 @@ public class SimulationEngine {
             p.addForce(physics.calculateDrag(p));
         }
 
-        // Forze N-body: gravità + Elettrostatica -- il Courant preventivo qui usa ancora
-        // params.dt nominale, dato che la mutazione avviene solo dopo, più sotto.
+        // Forze N-body: gravità + Elettrostatica + calcolo del Courant
         int n = particles.size();
         if (params.useBarnesHut && n >= params.barnesHutThreshold) {
             computeForcesBarnesHut();
-        } else if (params.useParallelForces && n > 200) {
+        } else if (params.useParallelForces && n > params.parallelForcesThreshold) {
             computeForcesParallel();
         } else {
             computeForcesSequential();
         }
         long t1 = System.nanoTime();
 
-        // Timestep adattivo: il Courant preventivo appena calcolato (con dt nominale) dice se
+        // Timestep adattivo: il Courant appena calcolato (nelle forze) dice se
         // questo step, integrato per intero, sarebbe troppo grezzo per l'incontro più ravvicinato
-        // visto durante le forze. Il valore effettivo viene scritto DIRETTAMENTE in params.dt --
-        // Physics, la griglia di collisione, il pannello grafico continuano a leggere params.dt
-        // esattamente come sempre, nessuna firma cambiata. Il dt nominale (per poter ripristinare
-        // a fine step) vive in preemptiveCourant, non in una variabile locale: e' l'oggetto di
-        // appoggio pensato apposta per essere raggiungibile da ogni parte del motore.
-        double nominalDt = preemptiveCourant.getNominalDt();
+        // visto durante le forze.
+        double nominalDt = courantMonitor.getNominalDt();
         double effectiveDt = nominalDt;
-        double courantThisStep = preemptiveCourant.getMax();
+        double courantThisStep = courantMonitor.getMax();
         boolean dtWasReduced = false;
         if (courantThisStep > params.courantSafetyThreshold) {
             double scale = params.courantSafetyThreshold / courantThisStep;
             effectiveDt = Math.max(nominalDt * scale, nominalDt * params.minDtFraction);
             dtWasReduced = (effectiveDt < nominalDt);
+            courantMonitor.recordReduction(effectiveDt, courantThisStep, courantMonitor.getMaxPairId1(), courantMonitor.getMaxPairId2());
         }
         params.dt = effectiveDt;
 
@@ -135,7 +128,7 @@ public class SimulationEngine {
         }
         long t2 = System.nanoTime();
 
-        // Controllo Collisioni e Fusione (legge params.dt, gia' al valore effettivo di questo step)
+        // Controllo Collisioni e Fusione
         synchronized (particles) {
             handleCollisions();
         }
@@ -147,10 +140,11 @@ public class SimulationEngine {
         double collisionMs  = (t3 - t2) / 1_000_000.0;
         if (params.logSummaryEveryNSteps > 0 && metrics.getStepCount() % params.logSummaryEveryNSteps == 0) {
             printSummary(forceMs, integrationMs, collisionMs, effectiveDt, dtWasReduced);
+            courantMonitor.resetSummaryWindow(); // la finestra aggregata riparte per il prossimo intervallo
         }
 
-        // Aggiornamento per step successivo: il tempo simulato avanza della quantita' REALMENTE
-        // usata in questo step, non del valore nominale.
+        // Aggiornamento per step successivo: il tempo simulato avanza della quantitaà realmente
+        // usata in questo step.
         metrics.addTime(effectiveDt);
         metrics.incrementStep();
         updateTpsCounter();
@@ -173,13 +167,13 @@ public class SimulationEngine {
 
     private void computeForcesSequential() {
         int numParticles = particles.size();
-        preemptiveCourant.reset();
+        courantMonitor.reset();
 
         double[] reachLocal = new double[numParticles];
         for (int i = 0; i < numParticles; i++) {
             Particle p = particles.get(i);
             p.resetPotentialEnergy();
-            reachLocal[i] = physics.getCaptureReach(p); // calcolato UNA VOLTA per particella, non per coppia
+            reachLocal[i] = physics.getCaptureReach(p); // calcolato una volta per particella
         }
 
         for (int i = 0; i < numParticles; i++) {
@@ -199,17 +193,12 @@ public class SimulationEngine {
                     p2.addPotentialEnergy(pot);
                 }
 
-                // Courant PREVENTIVO: la coppia e la sua distanza sono già in mano dal calcolo
-                // della forza appena fatto sopra, nessun dato in più da recuperare. Filtrato per
-                // prossimità reale usando il raggio di cattura PRECALCOLATO (reachLocal), non
-                // ricalcolato ad ogni coppia -- physics.getCaptureReach() fa una radice cubica,
-                // chiamarlo O(N^2) volte invece di O(N) e' un costo reale e misurabile, non
-                // trascurabile come avevo assunto la prima volta.
+                // Calcolo Courant
                 if (dist <= reachLocal[i] + reachLocal[j]) {
                     double sumRadii = p1.getRadius() + p2.getRadius();
                     if (sumRadii > 0) {
                         double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-                        preemptiveCourant.update((relSpeed * params.dt) / sumRadii);
+                        courantMonitor.update((relSpeed * params.dt) / sumRadii, p1.getId(), p2.getId());
                     }
                 }
             }
@@ -218,7 +207,7 @@ public class SimulationEngine {
 
     private void computeForcesParallel() {
         int numParticles = particles.size();
-    	preemptiveCourant.reset();
+    	courantMonitor.reset();
 
         double[] reachLocal = new double[numParticles];
         java.util.stream.IntStream.range(0, numParticles).parallel().forEach(i -> {
@@ -230,8 +219,9 @@ public class SimulationEngine {
         java.util.stream.IntStream.range(0, numParticles).parallel().forEach(i -> {
             double fx = 0.0, fy = 0.0, fz = 0.0;
             double potentialSum = 0.0;
-            double localMaxCourant = 0.0; // accumulo locale al thread: un solo update() atomico a fine ciclo, non uno per coppia
-            
+            double localMaxCourant = 0.0; // accumulo locale al thread: un solo update() atomico a fine ciclo
+            int localMaxOtherId = -1;
+
             Particle p1 = particles.get(i);
 
             for (int j = 0; j < numParticles; j++) {
@@ -252,24 +242,27 @@ public class SimulationEngine {
                 if (sumRadii > 0 && dist <= reachLocal[i] + reachLocal[j]) {
                     double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
                     double courant = (relSpeed * params.dt) / sumRadii;
-                    if (courant > localMaxCourant) localMaxCourant = courant;
+                    if (courant > localMaxCourant) {
+                        localMaxCourant = courant;
+                        localMaxOtherId = p2.getId();
+                    }
                 }
             }
 
             p1.addForce(new Vector3D(fx, fy, fz));
             p1.addPotentialEnergy(potentialSum);
-            preemptiveCourant.update(localMaxCourant);
+            courantMonitor.update(localMaxCourant, p1.getId(), localMaxOtherId);
         });
     }
 
     private void computeForcesBarnesHut() {
         BarnesHutTree tree = new BarnesHutTree(particles, params, physics);
-        preemptiveCourant.reset();
+        courantMonitor.reset();
         int n = particles.size();
         java.util.stream.IntStream.range(0, n).parallel().forEach(i -> {
             Particle p = particles.get(i);
             p.resetPotentialEnergy();
-            p.addForce(tree.computeForce(p, preemptiveCourant));
+            p.addForce(tree.computeForce(p, courantMonitor));
         });
     }
 
@@ -499,10 +492,29 @@ public class SimulationEngine {
         // Dividiamo per 2 il potenziale per evitare il doppio conteggio delle coppie
         double totalMechanicalEnergy = totalKineticEnergy + totalPotentialEnergy / 2.0 + totalStarPotentialEnergy;
 
+        // La coppia responsabile del Courant massimo viene riportata SOLO quando dt e' stato
+        // ridotto: negli step normali il valore e' quasi sempre 0 (nessuna coppia vicina abbastanza
+        // da contare), riportare -1/-1 ad ogni riga sarebbe solo rumore nel log.
+        String pairInfo = dtWasReduced
+                ? String.format(" [coppia #%d-#%d]", courantMonitor.getMaxPairId1(), courantMonitor.getMaxPairId2())
+                : "";
+
+        // Riepilogo AGGREGATO dall'ultimo summary: quante riduzioni sono avvenute nell'intervallo
+        // appena trascorso (non solo in questo singolo step), e qual e' stata la peggiore -- senza
+        // questo, un episodio di riduzione sostenuto tra due summary può restare completamente
+        // invisibile se il singolo step campionato non era tra quelli ridotti.
+        int reductionsSinceLastSummary = courantMonitor.getReductionsSinceLastSummary();
+        String intervalInfo = (reductionsSinceLastSummary > 0)
+                ? String.format(" | riduzioni dall'ultimo summary=%d (peggiore: Courant=%.2f, dt=%.1fs, coppia #%d-#%d)",
+                        reductionsSinceLastSummary, courantMonitor.getWorstCourantSinceLastSummary(),
+                        courantMonitor.getWorstEffectiveDtSinceLastSummary(),
+                        courantMonitor.getWorstPairId1SinceLastSummary(), courantMonitor.getWorstPairId2SinceLastSummary())
+                : "";
+
         logger.log(String.format(
-                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant: %.2f | dt: %.1fs%s | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms",
+                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant: %.2f%s | dt: %.1fs%s%s | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms",
                 metrics.getSimulationTime(), totalMechanicalEnergy,
-                aliveCount, preemptiveCourant.getMax(), effectiveDt, (dtWasReduced ? " [RIDOTTO]" : ""), totalMass, maxMass, maxRadius, 
+                aliveCount, courantMonitor.getMax(), pairInfo, effectiveDt, (dtWasReduced ? " [RIDOTTO]" : ""), intervalInfo, totalMass, maxMass, maxRadius, 
                 metrics.getTotalMerges(), metrics.getTotalBounces(), metrics.getTotalFragmentations(), metrics.getTotalStarFalls(), metrics.getTotalEscapes(), 
                 forceMs, integrationMs, collisionMs));
     }

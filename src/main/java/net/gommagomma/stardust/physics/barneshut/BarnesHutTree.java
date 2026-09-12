@@ -62,7 +62,7 @@ public class BarnesHutTree {
         p.addPotentialEnergy(acc.potentialEnergy);
 
         if (courantMonitor != null) {
-            courantMonitor.update(acc.maxCourant);
+            courantMonitor.update(acc.maxCourant, p.getId(), acc.maxCourantOtherId);
         }
 
         return new Vector3D(acc.fx, acc.fy, acc.fz);
@@ -124,6 +124,7 @@ public class BarnesHutTree {
         double fz = 0.0;
         double potentialEnergy = 0.0;
         double maxCourant = 0.0;
+        int maxCourantOtherId = -1;
 
         void add(double x, double y, double z) {
             this.fx += x;
@@ -135,8 +136,11 @@ public class BarnesHutTree {
             this.potentialEnergy += p;
         }
 
-        void updateMaxCourant(double candidate) {
-            if (candidate > maxCourant) maxCourant = candidate;
+        void updateMaxCourant(double candidate, int targetId, int otherId) {
+            if (candidate > maxCourant) {
+                maxCourant = candidate;
+                maxCourantOtherId = otherId;
+            }
         }
     }
 
@@ -404,7 +408,7 @@ public class BarnesHutTree {
             double sumRadii = target.getRadius() + other.getRadius();
             if (sumRadii > 0 && dist <= targetReach + physics.getCaptureReach(other)) {
                 double relSpeed = target.getVelocity().subtract(other.getVelocity()).magnitude();
-                acc.updateMaxCourant((relSpeed * params.dt) / sumRadii);
+                acc.updateMaxCourant((relSpeed * params.dt) / sumRadii, target.getId(), other.getId());
             }
         }
     }

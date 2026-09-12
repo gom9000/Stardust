@@ -1,0 +1,22 @@
+    | sequenziale(ms)   parallelo(ms)  barnes-hut(ms)
+-----------------------------------------------------------------
+50       |           0,073           0,188           0,313  (reps=60)
+100      |           0,091           0,073           0,439  (reps=60)
+150      |           0,102           0,051           0,147  (reps=60)
+200      |           0,135           0,095           0,220  (reps=60)
+250      |           0,217           0,116           0,200  (reps=60)
+300      |           0,313           0,149           0,198  (reps=60)
+400      |           0,587           0,224           0,272  (reps=60)
+500      |           0,919           0,294           0,330  (reps=60)
+700      |           1,798           0,551           0,504  (reps=20)
+1000     |           3,680           1,006           0,682  (reps=20)
+1500     |           8,191           2,295           1,082  (reps=20)
+2000     |          14,548           4,180           2,271  (reps=20)
+3000     |          35,118           9,887           2,328  (reps=5)
+5000     |       (saltato)          30,892           4,109  (reps=5)
+8000     |       (saltato)          77,595           6,967  (reps=5)
+12000    |       (saltato)         176,542          11,664  (reps=5)
+15000    |       (saltato)         279,464          14,574  (reps=5)
+
+Soglie attuali nel motore: sequenziale->parallelo a n>100, parallelo->Barnes-Hut a n>=400 (parametro barnesHutThreshold).
+Core disponibili su questa macchina: 12

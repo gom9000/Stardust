@@ -43,12 +43,17 @@ I corpi hanno masse sufficienti perché la mutua gravità domini su ogni altra i
 * **Come lo modello:** 
   * **Accrescimento / Cannibalismo:** Se la velocità relativa è sotto la soglia di cattura, i corpi si fondono conservando la massa totale e ricalcolando il raggio equivalente (con una densità che si compatta progressivamente ad ogni fusione).
   * **Rimbalzo:** Tra la soglia di cattura e quella di frammentazione, viene applicato un coefficiente di restituzione per calcolare le velocità post-impatto, conservando la quantità di moto.
-  * **Frammentazione:** Se l'energia cinetica supera la soglia critica, il corpo maggiore viene disgregato in un numero controllato di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
+  * **Frammentazione:** Se l'energia cinetica supera la soglia critica, entrambi i corpi vengono distrutti e sostituiti da un numero di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
 
 ### Forze Elettrostatiche (Interazione Coulombiana)
 * **Il fenomeno:** Dominanti nella Fase 1 sui grani microscopici di polvere, dove la carica elettrica accumulata (per fotoionizzazione o collisioni) genera attrazione o repulsione elettrostatica a corto raggio.
 * **Come funziona:** Regolate dalla legge di Coulomb, diventano del tutto trascurabili su scala macroscopica a causa della neutralità elettrica complessiva dei corpi massicci.
 * **Come lo modello:** Come per l'interazione gravitazionale, per gestire migliaia di corpi senza collassare a livello computazionale, il motore adotta un approccio gerarchico basato sull'algoritmo **Barnes-Hut**. Anzi, per ottimizzazione le due forze sono calcolate nello stesso ciclo di gestione dell'algoritmo.
+
+### Timestep Adattivo
+* **Il fenomeno**: Un incontro ravvicinato tra due corpi può evolvere più in fretta di quanto un passo di integrazione fisso riesca a risolvere con precisione, rischiando di alterare l'esito della collisione o l'accuratezza dell'orbita risultante.
+* **Come funziona**: Un criterio standard per valutare l'adeguatezza del passo di integrazione in una simulazione numerica è il confronto tra lo spostamento atteso in uno step e la scala fisica rilevante del fenomeno (il numero di Courant). Se lo spostamento supera significativamente quella scala, il passo è troppo grezzo per risolvere correttamente l'evento.
+* **Come lo modello**: Il Courant viene calcolato in via preventiva durante ogni ciclo, prima dell'integrazione, limitatamente alle coppie di particelle realmente vicine tra loro. Se supera una soglia di sicurezza configurabile, il passo di integrazione viene ridotto proporzionalmente solo per quello step, per poi tornare automaticamente al valore configurato al termine dello step.
 
 
 ## Architettura e Ottimizzazioni Numeriche
@@ -112,12 +117,13 @@ Tutti i parametri fisici e numerici sono centralizzati in un file di testo `chia
 
 I gruppi principali (vedi `parameters.txt` per l'elenco completo):
 
-* **Stella centrale**: `centralStarMass`, `centralStarRadius`, `centralStarDensity`.
-* **Disco iniziale**: `n` (numero di particelle), `diskInnerRadiusAU` / `diskOuterRadiusAU`, `initialParticleMassMin` / `initialParticleMassMax` e `massPowerLawIndex` (distribuzione a legge di potenza delle masse), `initialParticleDensity`, `initialVelocityDispersion`.
-* **Gravità**: `dt` (passo di integrazione, secondi), `softening` (parametro ε di Plummer), `activeGravityModel` (`NEWTONIAN_CLAMPED` o `PLUMMER_SOFTENED`), `useBarnesHut` / `barnesHutTheta` / `barnesHutThreshold` (soglia di N sotto cui si torna al calcolo diretto), `enableElectrostaticForce`.
-* **Collisioni**: `hillCaptureFraction` (frazione del raggio di Hill usata come raggio di cattura — vedi nota sotto), `gravitationalCaptureMultiplier`, `mergeVelocityFloor` (soglia minima di fusione indipendente dalla velocità di fuga), `fragmentationMultiplier`.
-* **Drag / Gas**: `dragReferenceDensity`, `gasDensityBase`, `gasProfileExponent`.
-* **Sessione / I/O**: `logSummaryEveryNSteps`, `screenshotEveryNSteps`, `fps`, `autosaveInterval`.
+* Stella centrale: `centralStarMass`, `centralStarRadius`, `centralStarDensity`.
+* Disco iniziale: `n` (numero di particelle), `diskInnerRadiusAU` / `diskOuterRadiusAU`, `initialParticleMassMin` / `initialParticleMassMax` e `massPowerLawIndex` (distribuzione a legge di potenza delle masse), `initialParticleDensity`, `initialVelocityDispersion`.
+* Gravità: `dt` (passo di integrazione, secondi), `softening` (parametro ε di Plummer), `activeGravityModel` (`NEWTONIAN_CLAMPED` o `PLUMMER_SOFTENED`), `useParallelForces` / `parallelForcesThreshold` (soglia di N per passare dal calcolo diretto sequenziale a quello parallelo), `useBarnesHut` / `barnesHutTheta` / `barnesHutThreshold` (soglia di N per passare al calcolo gerarchico), `enableElectrostaticForce`.
+* Timestep adattivo: `courantSafetyThreshold` (soglia di Courant preventivo oltre la quale il passo viene ridotto per lo step corrente), `minDtFraction` (pavimento minimo della riduzione, come frazione del dt nominale).
+* Collisioni: `hillCaptureFraction` (frazione del raggio di Hill usata come raggio di cattura — vedi nota sotto), `gravitationalCaptureMultiplier`, `mergeVelocityFloor` (soglia minima di fusione indipendente dalla velocità di fuga), `fragmentationMultiplier`.
+* Drag / Gas: `dragReferenceDensity`, `gasDensityBase`, `gasProfileExponent`.
+* Sessione / I/O: `logSummaryEveryNSteps`, `screenshotEveryNSteps`, `fps`, `autosaveInterval`.
 
 
 ## Organizzazione di una simulazione
@@ -161,12 +167,18 @@ Il motore fisico è coperto da una suite di test JUnit 5, organizzata su più li
 mvn test
 ```
 
+
 ## Benchmark
-Nella cartella dei test sono presenti degli strumenti per misurare il compromesso reale tra `dt`, `theta` di Barnes-Hut e numero di particelle: quanto costa in tempo di calcolo, quanto si paga in fedeltà della forza e in deriva dell'energia. Producono tabelle.
+Nella cartella dei test sono presenti degli strumenti per misurare:
+* Compromesso reale tra `dt`, `theta` di Barnes-Hut e numero di particelle: quanto costa in tempo di calcolo, quanto si paga in fedeltà della forza e in deriva dell'energia
+* Punti di incrocio reali tra i tre algoritmi di calcolo forze (sequenziale, parallelo, Barnes-Hut), utili per tarare le soglie di dispatch (`parallelForcesThreshold`, `barnesHutThreshold`) sulla propria macchina.
+
+Producono delle tabelle.
 
 ```bash
 mvn test-compile
 mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.benchmark.DtThetaDurationEnergyMatrix" -Dexec.classpathScope=test
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.benchmark.ForceDispatchThresholdBenchmark" -Dexec.classpathScope=test
 ```
 
 Le misure raccolte nel tempo vivono in `benchmarks/`.

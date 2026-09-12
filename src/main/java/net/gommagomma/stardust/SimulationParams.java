@@ -36,6 +36,7 @@ public class SimulationParams
     public boolean useBarnesHut;
     public double barnesHutTheta;
     public int barnesHutThreshold;
+    public int parallelForcesThreshold;
     public GravityModel activeGravityModel = GravityModel.NEWTONIAN_CLAMPED;
     public boolean enableElectrostaticForce;
 
@@ -134,6 +135,7 @@ public class SimulationParams
             case "useBarnesHut":                   useBarnesHut = Boolean.parseBoolean(value); break;
             case "barnesHutTheta":                 barnesHutTheta = Double.parseDouble(value); break;
             case "barnesHutThreshold":             barnesHutThreshold = Integer.parseInt(value); break;
+            case "parallelForcesThreshold":        parallelForcesThreshold = Integer.parseInt(value); break;
             case "activeGravityModel":             activeGravityModel = GravityModel.valueOf(value); break;
             case "enableElectrostaticForce":       enableElectrostaticForce = Boolean.parseBoolean(value); break;
 

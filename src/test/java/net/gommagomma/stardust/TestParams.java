@@ -29,6 +29,7 @@ public final class TestParams {
         params.useBarnesHut = true;
         params.barnesHutTheta = 0.6;
         params.barnesHutThreshold = 400;
+        params.parallelForcesThreshold = 100;
 
         params.hillCaptureFraction = 0.20;
         params.hillAmplification = 3.0;
