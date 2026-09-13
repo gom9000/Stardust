@@ -172,6 +172,7 @@ mvn test
 Nella cartella dei test sono presenti degli strumenti per misurare:
 * Compromesso reale tra `dt`, `theta` di Barnes-Hut e numero di particelle: quanto costa in tempo di calcolo, quanto si paga in fedeltà della forza e in deriva dell'energia
 * Punti di incrocio reali tra i tre algoritmi di calcolo forze (sequenziale, parallelo, Barnes-Hut), utili per tarare le soglie di dispatch (`parallelForcesThreshold`, `barnesHutThreshold`) sulla propria macchina.
+* Confronto, per diversi valori di courantSafetyThreshold, di quanto il timestep adattivo migliora la fedeltà del rilevamento collisioni rispetto a nessun adattamento.
 
 Producono delle tabelle.
 
@@ -179,6 +180,7 @@ Producono delle tabelle.
 mvn test-compile
 mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.benchmark.DtThetaDurationEnergyMatrix" -Dexec.classpathScope=test
 mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.benchmark.ForceDispatchThresholdBenchmark" -Dexec.classpathScope=test
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.benchmark.AdaptiveThresholdBenchmark" -Dexec.classpathScope=test
 ```
 
 Le misure raccolte nel tempo vivono in `benchmarks/`.
