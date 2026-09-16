@@ -89,7 +89,9 @@ public class Stardust
             try {
                 Savepoint.SavepointState state = Savepoint.load(paths.savepointFile.toString());
                 System.out.println("Savepoint ripristinato.");
-                return new SimulationEngine(state.particles, eventsLogger, state.metrics, params);
+                SimulationEngine restored = new SimulationEngine(state.particles, eventsLogger, state.metrics, params);
+                restored.setSavepointsArchiveDir(paths.savepointsArchiveDir);
+                return restored;
             } catch (IOException e) {
                 System.err.println("Impossibile ripristinare il savepoint (" + e.getMessage() + "), generazione di un nuovo disco.");
             }
@@ -101,7 +103,9 @@ public class Stardust
             throw new IllegalStateException("Nessuna lista di particelle impostata.");
         }
 
-        return new SimulationEngine(particles, eventsLogger, params);
+        SimulationEngine fresh = new SimulationEngine(particles, eventsLogger, params);
+        fresh.setSavepointsArchiveDir(paths.savepointsArchiveDir);
+        return fresh;
     }
 
     private Thread startEngineThread()

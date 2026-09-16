@@ -56,8 +56,9 @@ public class BarnesHutTree {
         p.resetPotentialEnergy();
         ForceAccumulator acc = new ForceAccumulator();
         double targetReach = physics.getCaptureReach(p); // calcolato UNA VOLTA per bersaglio, non per ogni foglia visitata
+        double targetMargin = p.getVelocity().magnitude() * params.dt; // stesso principio, per il margine di spostamento
 
-        root.accumulateForce(p, thetaSq, acc, true, targetReach);
+        root.accumulateForce(p, thetaSq, acc, true, targetReach, targetMargin);
 
         p.addPotentialEnergy(acc.potentialEnergy);
 
@@ -305,7 +306,7 @@ public class BarnesHutTree {
             }
         }
 
-        void accumulateForce(Particle target, double thetaSq, ForceAccumulator acc, boolean containsTarget, double targetReach) {
+        void accumulateForce(Particle target, double thetaSq, ForceAccumulator acc, boolean containsTarget, double targetReach, double targetMargin) {
             if (totalMass == 0.0 && (!params.enableElectrostaticForce || totalCharge == 0.0)) {
                 return;
             }
@@ -313,12 +314,12 @@ public class BarnesHutTree {
             if (isLeaf()) {
                 if (single != null) {
                     if (single != target && single.isAlive()) {
-                        addDirect(target, single, acc, targetReach);
+                        addDirect(target, single, acc, targetReach, targetMargin);
                     }
                 } else if (overflow != null) {
                     for (Particle other : overflow) {
                         if (other != null && other != target && other.isAlive()) {
-                            addDirect(target, other, acc, targetReach);
+                            addDirect(target, other, acc, targetReach, targetMargin);
                         }
                     }
                 }
@@ -379,11 +380,11 @@ public class BarnesHutTree {
                 }
 
                 boolean childContainsTarget = containsTarget && i == targetOctant;
-                child.accumulateForce(target, thetaSq, acc, childContainsTarget, targetReach);
+                child.accumulateForce(target, thetaSq, acc, childContainsTarget, targetReach, targetMargin);
             }
         }
 
-        private void addDirect(Particle target, Particle other, ForceAccumulator acc, double targetReach) {
+        private void addDirect(Particle target, Particle other, ForceAccumulator acc, double targetReach, double targetMargin) {
             Vector3D f = physics.calculateGravityAndElectrostaticForce(target, other);
             acc.add(f.getX(), f.getY(), f.getZ());
 
@@ -406,7 +407,8 @@ public class BarnesHutTree {
             // targetReach e' precalcolato una sola volta per bersaglio (vedi computeForce):
             // solo other.getCaptureReach() viene ancora calcolato qui, una chiamata invece di due.
             double sumRadii = target.getRadius() + other.getRadius();
-            if (sumRadii > 0 && dist <= targetReach + physics.getCaptureReach(other)) {
+            double otherMargin = other.getVelocity().magnitude() * params.dt;
+            if (sumRadii > 0 && dist <= targetReach + physics.getCaptureReach(other) + targetMargin + otherMargin) {
                 double relSpeed = target.getVelocity().subtract(other.getVelocity()).magnitude();
                 acc.updateMaxCourant((relSpeed * params.dt) / sumRadii, target.getId(), other.getId());
             }

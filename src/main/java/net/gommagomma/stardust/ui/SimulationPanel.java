@@ -532,7 +532,7 @@ public class SimulationPanel extends JPanel {
                              mass[selectedIdx], radius[selectedIdx], merged[selectedIdx], hasGapActive, isCoRotatingViewActive);
         }
 
-        drawTimeHUD(g2, simulatedTimeSeconds, currentDtSeconds);
+        drawTimeHUD(g2, simulatedTimeSeconds, currentDtSeconds, ids.length);
 
         // 6. Overlay di Pausa
         if (isPaused) {
@@ -760,8 +760,8 @@ public class SimulationPanel extends JPanel {
         g2World.draw(new Ellipse2D.Double(-avgRadiusWorld, -avgRadiusWorld, avgRadiusWorld * 2.0, avgRadiusWorld * 2.0));
     }
 
-    private void drawTimeHUD(Graphics2D g2, double totalSimulatedSeconds, double currentDt) {
-        int hudWidth = 210;
+    private void drawTimeHUD(Graphics2D g2, double totalSimulatedSeconds, double currentDt, int particleCount) {
+        int hudWidth = 240;
         int hudHeight = 82;
         int hudX = getWidth() - hudWidth - 15;
         int hudY = 15;
@@ -782,10 +782,10 @@ public class SimulationPanel extends JPanel {
 
         g2.drawString(String.format("Tempo: %.2f Anni", years), textX, textY);
         g2.drawString(String.format("           (%.1f giorni)", days), textX, textY + 16);
+        g2.drawString(String.format("N: %d particelle", particleCount), textX, textY + 34);
 
         g2.setColor(new Color(160, 200, 220));
-        g2.drawString(String.format("dt: %.1f s/step", currentDt), textX, textY + 34);
-        g2.drawString(String.format("zoom: %.2fx", zoomFactor), textX, textY + 51);
+        g2.drawString(String.format("dt: %.1f s/step   zoom: %.2fx", currentDt, zoomFactor), textX, textY + 51);
     }
 
     public void saveScreenshot(File outputFile) {

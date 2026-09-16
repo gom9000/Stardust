@@ -2,8 +2,11 @@ package net.gommagomma.stardust;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Path;
+import java.io.IOException;
 
 import net.gommagomma.stardust.io.RunLogger;
+import net.gommagomma.stardust.io.Savepoint;
 import net.gommagomma.stardust.math.Vector3D;
 import net.gommagomma.stardust.model.Particle;
 import net.gommagomma.stardust.physics.Physics;
@@ -18,6 +21,8 @@ public class SimulationEngine {
     private final List<Particle> particles;
     private final SimulationMetrics metrics;
     private final RunLogger logger;
+    private Path savepointsArchiveDir = null; // opzionale: se non impostato, l'archiviazione e' disattivata
+    private long lastArchivedEventCount = 0;
     private volatile boolean running = false;
 
     private static final ThreadLocal<List<Particle>> LOCAL_CANDIDATES = ThreadLocal.withInitial(() -> new ArrayList<>(128));
@@ -134,6 +139,8 @@ public class SimulationEngine {
         }
         long t3 = System.nanoTime();
 
+        checkAndArchiveSavepoint();
+
         // Logging
         double forceMs = (t1 - t0) / 1_000_000.0;
         double integrationMs = (t2 - t1) / 1_000_000.0;
@@ -153,8 +160,39 @@ public class SimulationEngine {
         params.dt = nominalDt;
     }
 
-    private void updateTpsCounter() {
-        tpsStepCounter++;
+    /** Se impostata, ogni volta che il totale di eventi (fusioni+rimbalzi+frammentazioni) dall'ultimo
+     *  archivio supera params.archiveSavepointEveryNEvents, viene scritta una nuova istantanea in
+     *  questa cartella -- non sovrascrive mai savepoint.txt, che resta l'autosave separato. */
+    public void setSavepointsArchiveDir(Path dir) {
+        this.savepointsArchiveDir = dir;
+    }
+
+    private void checkAndArchiveSavepoint() {
+        if (savepointsArchiveDir == null) return;
+
+        // Rimbalzi esclusi: non cambiano N ne' la distribuzione di massa, solo rumore nel segnale.
+        long totalEvents = metrics.getTotalMerges() + metrics.getTotalFragmentations();
+
+        int n;
+        synchronized (particles) {
+            n = (int) particles.stream().filter(Particle::isAlive).count();
+        }
+        // Soglia proporzionale a N, non assoluta: a N piccolo scende fino a 1 evento, altrimenti
+        // rischierebbe di non scattare mai piu' proprio nella fase piu' rara e preziosa.
+        long threshold = Math.max(1, Math.round(n * params.archiveSavepointEventFraction));
+        if (totalEvents - lastArchivedEventCount < threshold) return;
+
+        lastArchivedEventCount = totalEvents;
+        String filename = String.format("savepoint_N%d_ev%d.txt", n, totalEvents);
+        Path outPath = savepointsArchiveDir.resolve(filename);
+        try {
+            Savepoint.save(outPath.toString(), this);
+        } catch (IOException e) {
+            if (logger != null) logger.log("[ARCHIVIO] fallito il salvataggio di " + outPath + ": " + e.getMessage());
+        }
+    }
+
+    private void updateTpsCounter() {        tpsStepCounter++;
         long now = System.nanoTime();
         long elapsed = now - lastTpsCheckTime;
 
@@ -170,10 +208,18 @@ public class SimulationEngine {
         courantMonitor.reset();
 
         double[] reachLocal = new double[numParticles];
+        double[] marginLocal = new double[numParticles]; // spostamento possibile in questo step (speed*dt):
+                                                            // senza, una coppia veloce che parte fuori dal
+                                                            // raggio di prossimita' ma si avvicina abbastanza
+                                                            // da scontrarsi ENTRO questo step passerebbe
+                                                            // inosservata al Courant (pur essendo vista
+                                                            // correttamente da checkCollision, che ha gia'
+                                                            // questo margine nella griglia di collisione).
         for (int i = 0; i < numParticles; i++) {
             Particle p = particles.get(i);
             p.resetPotentialEnergy();
             reachLocal[i] = physics.getCaptureReach(p); // calcolato una volta per particella
+            marginLocal[i] = p.getVelocity().magnitude() * params.dt;
         }
 
         for (int i = 0; i < numParticles; i++) {
@@ -194,7 +240,7 @@ public class SimulationEngine {
                 }
 
                 // Calcolo Courant
-                if (dist <= reachLocal[i] + reachLocal[j]) {
+                if (dist <= reachLocal[i] + reachLocal[j] + marginLocal[i] + marginLocal[j]) {
                     double sumRadii = p1.getRadius() + p2.getRadius();
                     if (sumRadii > 0) {
                         double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
@@ -210,10 +256,12 @@ public class SimulationEngine {
     	courantMonitor.reset();
 
         double[] reachLocal = new double[numParticles];
+        double[] marginLocal = new double[numParticles];
         java.util.stream.IntStream.range(0, numParticles).parallel().forEach(i -> {
             Particle p = particles.get(i);
             p.resetPotentialEnergy();
             reachLocal[i] = physics.getCaptureReach(p);
+            marginLocal[i] = p.getVelocity().magnitude() * params.dt;
         });
     	
         java.util.stream.IntStream.range(0, numParticles).parallel().forEach(i -> {
@@ -239,7 +287,7 @@ public class SimulationEngine {
                 }
 
                 double sumRadii = p1.getRadius() + p2.getRadius();
-                if (sumRadii > 0 && dist <= reachLocal[i] + reachLocal[j]) {
+                if (sumRadii > 0 && dist <= reachLocal[i] + reachLocal[j] + marginLocal[i] + marginLocal[j]) {
                     double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
                     double courant = (relSpeed * params.dt) / sumRadii;
                     if (courant > localMaxCourant) {

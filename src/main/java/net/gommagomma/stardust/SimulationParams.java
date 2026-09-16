@@ -50,11 +50,28 @@ public class SimulationParams
     public double gravitationalCaptureMultiplier;
     public double mergeVelocityFloor;
     public double fragmentationMultiplier;
+    public double minFragmentationMassRatio = 0.01; // rapporto minimo massa_piccola/massa_grande perche' la
+                                                       // frammentazione sia un esito possibile: sotto questa
+                                                       // soglia, l'impattore e' troppo piccolo per portare
+                                                       // energia sufficiente a disgregare il bersaglio,
+                                                       // qualunque sia la velocita' (verificato con un caso
+                                                       // reale: rapporto 1e-4, energia dell'impattore solo
+                                                       // lo 0,01% dell'energia di legame del bersaglio).
 
     // Drag / Gas
-    public double dragReferenceDensity;
+    public double compactedMaxDensity;     // Densita' della roccia pienamente compattata -- il tetto
+                                             // verso cui densityForMass fa convergere i corpi con la
+                                             // massa. Usata anche dal drag (tramite p.getRadius()),
+                                             // ma il suo ruolo primario oggi e' questo, non piu' il drag:
+                                             // rinominato da dragReferenceDensity per riflettere l'uso reale.
     public double gasDensityBase;
     public double gasProfileExponent;
+    public double compactionMassMaxMultiplier = 100.0; // adimensionale -- la compattazione diventa
+                                                          // significativa quando un corpo supera
+                                                          // initialParticleMassMax di questo fattore.
+                                                          // Generico rispetto al disco iniziale: si
+                                                          // riscala da solo con n/initialParticleMassMax,
+                                                          // a differenza di un valore assoluto in kg.
 
     // Rendering / Diagnostica
     public double densityRingWidth;
@@ -66,6 +83,15 @@ public class SimulationParams
     public int screenshotEveryNSteps;
     public int fps;
     public int autosaveInterval;
+    public double archiveSavepointEventFraction = 0.01; // frazione di N attuale: soglia = max(1, round(N*frazione))
+                                                           // fusioni+frammentazioni cumulative dall'ultimo
+                                                           // archivio (i rimbalzi non contano: non cambiano
+                                                           // ne' N ne' la distribuzione di massa). Proporzionale
+                                                           // a N, non assoluta: a N grande la soglia e' alta
+                                                           // (fase densa, non serve archiviare ad ogni piccolo
+                                                           // evento), a N piccolo scende fino a 1 (altrimenti,
+                                                           // con una soglia assoluta fissa, rischierebbe di
+                                                           // non scattare mai piu' proprio nella fase piu' rara).
 
 
     public SimulationParams(SimulationPaths paths) {
@@ -145,13 +171,15 @@ public class SimulationParams
             case "gravitationalCaptureMultiplier":  gravitationalCaptureMultiplier = Double.parseDouble(value); break;
             case "mergeVelocityFloor":              mergeVelocityFloor = Double.parseDouble(value); break;
             case "fragmentationMultiplier":         fragmentationMultiplier = Double.parseDouble(value); break;
+            case "minFragmentationMassRatio":       minFragmentationMassRatio = Double.parseDouble(value); break;
             case "courantSafetyThreshold":          courantSafetyThreshold = Double.parseDouble(value); break;
             case "minDtFraction":                   minDtFraction = Double.parseDouble(value); break;
 
             // --- Drag / Gas ---
-            case "dragReferenceDensity":            dragReferenceDensity = Double.parseDouble(value); break;
+            case "compactedMaxDensity":              compactedMaxDensity = Double.parseDouble(value); break;
             case "gasDensityBase":                  gasDensityBase = Double.parseDouble(value); break;
             case "gasProfileExponent":              gasProfileExponent = Double.parseDouble(value); break;
+            case "compactionMassMaxMultiplier":     compactionMassMaxMultiplier = Double.parseDouble(value); break;
 
             // --- Rendering / Diagnostica ---
             case "densityRingWidthAU":              densityRingWidth = Double.parseDouble(value)*PhysicsConstants.AU; break;
@@ -163,6 +191,7 @@ public class SimulationParams
             case "screenshotEveryNSteps":           screenshotEveryNSteps = Integer.parseInt(value); break;
             case "fps":                             fps = Integer.parseInt(value); break;
             case "autosaveInterval":                autosaveInterval = Integer.parseInt(value); break;
+            case "archiveSavepointEventFraction":    archiveSavepointEventFraction = Double.parseDouble(value); break;
 
             default:
                 System.err.println("Parametro sconosciuto ignorato: " + key);

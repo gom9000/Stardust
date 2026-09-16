@@ -42,8 +42,10 @@ I corpi hanno masse sufficienti perché la mutua gravità domini su ogni altra i
 * **Come funziona:** L'energia d'urto nel sistema di riferimento del centro di massa viene confrontata con soglie di energia critica di legame gravitazionale e strutturale delle particelle coinvolte.
 * **Come lo modello:** 
   * **Accrescimento / Cannibalismo:** Se la velocità relativa è sotto la soglia di cattura, i corpi si fondono conservando la massa totale e ricalcolando il raggio equivalente (con una densità che si compatta progressivamente ad ogni fusione).
+  * **Accrescimento / Cannibalismo:** Se la velocità relativa è sotto la soglia di cattura, i corpi si fondono conservando la massa totale e ricalcolando il raggio equivalente. La densità del corpo risultante è calcolato in base ad una curva a saturazione, che porta i corpi piccoli verso `initialParticleDensity` e quelli grandi verso `compactedMaxDensity`.
   * **Rimbalzo:** Tra la soglia di cattura e quella di frammentazione, viene applicato un coefficiente di restituzione per calcolare le velocità post-impatto, conservando la quantità di moto.
   * **Frammentazione:** Se l'energia cinetica supera la soglia critica, entrambi i corpi vengono distrutti e sostituiti da un numero di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
+  * **Frammentazione:** Se l'energia cinetica supera la soglia critica e il rapporto delle due masse supera una soglia configurata, i corpi vengono distrutti e sostituiti da un numero di frammenti minori, distribuendo la massa residua e preservando la quantità di moto totale.
 
 ### Forze Elettrostatiche (Interazione Coulombiana)
 * **Il fenomeno:** Dominanti nella Fase 1 sui grani microscopici di polvere, dove la carica elettrica accumulata (per fotoionizzazione o collisioni) genera attrazione o repulsione elettrostatica a corto raggio.
@@ -109,6 +111,23 @@ Questo motore di simulazione si colloca nella Fase 4. L'architettura non risolve
 >Il motore include anche un modello di interazione coulombiana (disattivato di default, poiché ininfluente alle masse tipiche della Fase 4), predisposto come base per un'eventuale estensione futura verso le fasi di coagulazione della polvere.
 
 
+## Il ciclo di simulazione (`SimulationEngine.step()`)
+Ad ogni chiamata di `step()`, il motore esegue nell'ordine le seguenti fasi:
+
+1. **Calcolo delle Forze.** Per ogni particella viva si applicano gravità della stella centrale e drag del gas, le forze N-corpi (gravità reciproca + forza elettrostatica, se `enableElectrostaticForce` è attivo), scegliendo dinamicamente tra tre percorsi in base al numero di particelle vive `N`:
+   * `N ≥ barnesHutThreshold` → **Barnes-Hut** ($\mathcal{O}(N \log N)$;
+   * altrimenti, `N > parallelForcesThreshold` → **calcolo diretto parallelo** (Stream Java multi-core, $\mathcal{O}(N^2)$ ma con lavoro distribuito sui core);
+   * altrimenti → **calcolo diretto sequenziale** ($\mathcal{O}(N^2)$, un solo thread).
+
+   Nello stesso passaggio si aggiorna il **numero di Courant**: per ogni coppia entro il raggio di prossimità di ciascun corpo.
+
+2. **Timestep adattivo.** Se il Courant massimo appena calcolato supera `courantSafetyThreshold`, `dt` viene ridotto proporzionalmente per **questo solo step** (`dt_effettivo = dt_nominale × courantSafetyThreshold / courant`, con un pavimento a `dt_nominale × minDtFraction`); altrimenti resta al valore nominale. La riduzione è **globale**: si applica a tutte le particelle nello step corrente, non solo alla coppia che l'ha innescata.
+
+3. **Integrazione cinematica.** Ogni particella viva viene avanzata con lo schema **Euler-Cromer** (semi-implicito: si aggiorna prima la velocità con l'accelerazione, poi la posizione con la velocità già aggiornata) usando il `dt` effettivo di questo step. Subito dopo si controllano i confini del sistema (caduta sulla stella, fuga oltre il bordo esterno).
+
+4. **Collisioni.** La griglia spaziale viene ricostruita per lo step corrente, con un raggio di ricerca per particella che include un margine di spostamento (così una coppia veloce non sfugge alla ricerca dei candidati). Per ogni coppia di candidati vicini si esegue il rilevamento continuo (CCD: distanza minima lungo il segmento percorso in questo step) e, se il segmento passa entro il raggio di cattura combinato, si valuta l'esito: fusione se la velocità relativa è sotto soglia, frammentazione se la supera e l'impattore ha massa non trascurabile rispetto al bersaglio, altrimenti rimbalzo.
+
+
 ## Parametri di Simulazione (`parameters.txt` / `SimulationParams`)
 Tutti i parametri fisici e numerici sono centralizzati in un file di testo `chiave=valore` caricato a runtime da `SimulationParams`, con due livelli di priorità:
 
@@ -121,9 +140,9 @@ I gruppi principali (vedi `parameters.txt` per l'elenco completo):
 * Disco iniziale: `n` (numero di particelle), `diskInnerRadiusAU` / `diskOuterRadiusAU`, `initialParticleMassMin` / `initialParticleMassMax` e `massPowerLawIndex` (distribuzione a legge di potenza delle masse), `initialParticleDensity`, `initialVelocityDispersion`.
 * Gravità: `dt` (passo di integrazione, secondi), `softening` (parametro ε di Plummer), `activeGravityModel` (`NEWTONIAN_CLAMPED` o `PLUMMER_SOFTENED`), `useParallelForces` / `parallelForcesThreshold` (soglia di N per passare dal calcolo diretto sequenziale a quello parallelo), `useBarnesHut` / `barnesHutTheta` / `barnesHutThreshold` (soglia di N per passare al calcolo gerarchico), `enableElectrostaticForce`.
 * Timestep adattivo: `courantSafetyThreshold` (soglia di Courant preventivo oltre la quale il passo viene ridotto per lo step corrente), `minDtFraction` (pavimento minimo della riduzione, come frazione del dt nominale).
-* Collisioni: `hillCaptureFraction` (frazione del raggio di Hill usata come raggio di cattura — vedi nota sotto), `gravitationalCaptureMultiplier`, `mergeVelocityFloor` (soglia minima di fusione indipendente dalla velocità di fuga), `fragmentationMultiplier`.
-* Drag / Gas: `dragReferenceDensity`, `gasDensityBase`, `gasProfileExponent`.
-* Sessione / I/O: `logSummaryEveryNSteps`, `screenshotEveryNSteps`, `fps`, `autosaveInterval`.
+* Collisioni:  `hillCaptureFraction` (frazione del raggio di Hill usata come raggio di cattura), `hillAmplification` (fattore di amplificazione del raggio di Hill usato per il filtro di prossimità del Courant e della griglia di collisione, più ampio del raggio di cattura vero), `gravitationalCaptureMultiplier`, `mergeVelocityFloor` (soglia minima di fusione indipendente dalla velocità di fuga), `fragmentationMultiplier`, `minFragmentationMassRatio` (rapporto minimo di massa perché la frammentazione sia un esito possibile).
+* Drag / Gas: `compactedMaxDensity`, `compactionMassMaxMultiplier` (scala di massa della compattazione, come multiplo di `initialParticleMassMax`), `gasDensityBase`, `gasProfileExponent`.
+* Sessione / I/O: `logSummaryEveryNSteps`, `screenshotEveryNSteps`, `fps`, `autosaveInterval`, `archiveSavepointEventFraction` (frazione di N attuale: salva un'istantanea quando gli eventi cumulativi dall'ultimo archivio superano `max(1, round(N × frazione))`).
 
 
 ## Organizzazione di una simulazione
@@ -136,6 +155,7 @@ simulations/<simulationId>/
   events.log            # log degli evnti, in append
   runs.log              # una riga START/STOP per ogni sessione (avvio/chiusura del programma)
   screenshots/          # PNG del pannello grafico, salvati periodicamente
+  savepoints_archive/   # istantanee periodiche dei savepoint
 ```
 Questo permette di far girare più simulazioni in parallelo (ognuna con i propri parametri, log e savepoint), riprenderle in sessioni successive senza confusione, e ricostruire a posteriori, dai due log, sia la cronologia fisica degli eventi sia il tempo reale effettivamente investito in ciascuna sessione.
 

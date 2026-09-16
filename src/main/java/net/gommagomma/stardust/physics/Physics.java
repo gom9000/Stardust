@@ -136,8 +136,10 @@ public class Physics
         double sigmaH2 = 2.0e-19;
         double meanFreePath = mH2 / (Math.sqrt(2.0) * sigmaH2 * localGasDensity);
 
-        //double R = p.getRadius();
-        double R = Math.cbrt((3.0 * p.getMass()) / (4.0 * Math.PI * params.dragReferenceDensity));
+        double R = p.getRadius(); // ora coerente: p.getRadius() deriva da p.getDensity(), che a sua
+                                    // volta segue densityForMass -- non piu' un riferimento fisso
+                                    // scollegato dalla densita' reale del corpo (era il disaccordo
+                                    // che avevamo trovato: il drag ignorava sempre la densita' vera).
         double forceFactor;
 
         if (R <= (9.0 / 4.0) * meanFreePath) {
@@ -336,7 +338,18 @@ public class Physics
             return CollisionResult.MERGE;
         }
         if (relSpeed > fragmentationThreshold) {
-            return CollisionResult.FRAGMENT;
+            // Pavimento sul rapporto di massa: un impattore troppo piccolo non porta mai
+            // abbastanza energia da disgregare un bersaglio molto più massiccio, qualunque sia
+            // la sua velocità -- verificato con un caso reale (rapporto di massa 1,1e-4,
+            // v_rel=2735 m/s): l'energia cinetica dell'impattore era solo lo 0,01% dell'energia
+            // di legame gravitazionale del bersaglio, quattro ordini di grandezza sotto quanto
+            // servirebbe per una vera disgregazione catastrofica. Sotto la soglia, l'esito piu'
+            // plausibile e' un rimbalzo/cratere, non la frammentazione dell'intero sistema.
+            double massRatio = Math.min(p1.getMass(), p2.getMass()) / Math.max(p1.getMass(), p2.getMass());
+            if (massRatio >= params.minFragmentationMassRatio) {
+                return CollisionResult.FRAGMENT;
+            }
+            return CollisionResult.BOUNCE;
         }
         return CollisionResult.BOUNCE;
     }
@@ -344,6 +357,23 @@ public class Physics
     /**
      * Risolve l'urto anelastico fondendo la particella 'loser' dentro la particella 'winner'.
      */
+    /**
+     * Densità in funzione della massa attuale del corpo -- sostituisce la vecchia logica basata
+     * su mergerCount (fragile: mergerCount è cumulativo sull'intero albero genealogico delle
+     * fusioni, non "quante volte questo corpo si è fuso di persona" -- il fattore di crescita
+     * osservato empiricamente variava da 1,01x a 1,36x a seconda della topologia dell'albero, non
+     * del numero di eventi). Usa invece lo stato presente (la massa), sempre ben definito
+     * indipendentemente da come il corpo ci è arrivato: una curva a saturazione da
+     * initialParticleDensity (corpi piccoli, porosi) verso compactedMaxDensity (roccia compatta),
+     * con compactionMassScale a controllare quanto in fretta.
+     */
+    private double densityForMass(double mass) {
+        double minDensity = params.initialParticleDensity;
+        double maxDensity = params.compactedMaxDensity;
+        double massScale = params.initialParticleMassMax * params.compactionMassMaxMultiplier;
+        return minDensity + (maxDensity - minDensity) * (1.0 - Math.exp(-mass / massScale));
+    }
+
     public void mergeParticles(Particle winner, Particle loser) {
         double totalMass = winner.getMass() + loser.getMass();
 
@@ -355,8 +385,7 @@ public class Physics
                 .add(loser.getVelocity().multiply(loser.getMass()))
                 .divide(totalMass);
 
-        double blendedDensity = (winner.getDensity() * winner.getMass() + loser.getDensity() * loser.getMass()) / totalMass;
-        double newDensity = (blendedDensity < 3000.0) ? Math.min(3000.0, blendedDensity * 1.02) : 3000.0;
+        double newDensity = densityForMass(totalMass);
 
         winner.setPosition(newPos);
         winner.setVelocity(newVel);
@@ -442,11 +471,10 @@ public class Physics
         double ejectionEnergy = kineticEnergyCom * 0.10;
         double avgEjectionSpeed = Math.sqrt((2.0 * ejectionEnergy) / totalMass);
 
-        double avgDensity = (p1.getDensity() * p1.getMass() + p2.getDensity() * p2.getMass()) / totalMass;
-
         // 3. Generazione provvisoria delle masse e delle velocità di espulsione relative (u_i)
         double remainingMass = totalMass;
         List<Double> masses = new ArrayList<>();
+        List<Double> densities = new ArrayList<>();
         List<Vector3D> relativeVelocities = new ArrayList<>();
         List<Vector3D> positions = new ArrayList<>();
 
@@ -471,7 +499,12 @@ public class Physics
             double speedBoost = avgEjectionSpeed * (0.5 + Math.random() * 0.5);
             relativeVelocities.add(ejectionDir.multiply(speedBoost));
 
-            double estimatedRadius = Math.cbrt((3.0 * massFraction) / (4.0 * Math.PI * avgDensity));
+            // Densita' PROPRIA del frammento, in base alla propria massa -- non piu' la media dei
+            // genitori: un frammento piccolo nasce naturalmente meno denso di uno grande, senza
+            // bisogno di logica aggiuntiva, semplicemente perche' ha meno massa.
+            double fragDensity = densityForMass(massFraction);
+            densities.add(fragDensity);
+            double estimatedRadius = Math.cbrt((3.0 * massFraction) / (4.0 * Math.PI * fragDensity));
             positions.add(comPos.add(ejectionDir.multiply(estimatedRadius * 4.0)));
         }
 
@@ -493,7 +526,7 @@ public class Physics
 
             double fragmentCharge = (p1.getCharge() + p2.getCharge()) * (m / totalMass);
 
-            Particle frag = new Particle(positions.get(i), finalVel, m, fragmentCharge, avgDensity);
+            Particle frag = new Particle(positions.get(i), finalVel, m, fragmentCharge, densities.get(i));
             fragments.add(frag);
         }
 

@@ -37,7 +37,7 @@ public final class TestParams {
         params.mergeVelocityFloor = 2.5;
         params.fragmentationMultiplier = 2.0;
 
-        params.dragReferenceDensity = 3000.0;
+        params.compactedMaxDensity = 3000.0;
         params.gasDensityBase = 1.4e-9;
 
         return params;
