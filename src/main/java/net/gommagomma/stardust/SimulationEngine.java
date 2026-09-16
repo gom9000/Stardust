@@ -407,11 +407,12 @@ public class SimulationEngine {
                 // Verifica che stiano ANCORA collidendo ora che abbiamo lo stato bloccato.
                 if (!physics.checkCollision(p1, p2)) return;
                  
-                 // Valutazione esito collisione a tre vie
-                 // Forza la fusione se la velocità relativa è troppo bassa per sostenere un rimbalzo stabile
-                double relSpeed = p1.getVelocity().subtract(p2.getVelocity()).magnitude();
-
-                CollisionResult result = (relSpeed <3) ? CollisionResult.MERGE : physics.evaluateCollision(p1, p2);
+                 // Valutazione esito collisione a tre vie -- interamente delegata a evaluateCollision,
+                 // che gia' include il pavimento di fusione (mergeVelocityFloor) in modo configurabile.
+                 // In precedenza un controllo qui (relSpeed<3, cablato, scollegato da mergeVelocityFloor=2.5)
+                 // forzava sempre la fusione sotto 3 m/s, scavalcando evaluateCollision anche nella fascia
+                 // 2.5-3 m/s dove il modello configurato avrebbe scelto rimbalzo per corpi piccoli/lontani.
+                 CollisionResult result = physics.evaluateCollision(p1, p2);
                 switch (result) {
                     case MERGE:
                         handleAccretion(p1, p2);

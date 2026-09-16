@@ -103,7 +103,7 @@ public class Physics
 
         // 1. PARAMETRI TERMODINAMICI DEL DISCO DI GAS
         double tempRef = 280.0; // Kelvin a 1 AU
-        double temperature = tempRef * Math.pow(r3D / PhysicsConstants.AU, -0.5);
+        double temperature = tempRef * Math.pow(r3D / PhysicsConstants.AU, params.diskTemperatureExponent);
 
         double kB = 1.380649e-23;
         double mH2 = 3.34e-27; // Massa molecola d'idrogeno (kg)
@@ -113,7 +113,15 @@ public class Physics
         double scaleHeight = soundSpeed / omegaK;
 
         // 2. PROFILO DI DENSITÀ DEL GAS 3D
-        double midplaneGasDensity = params.gasDensityBase * Math.pow(r3D / PhysicsConstants.AU, params.gasProfileExponent);
+        // L'esponente di densita' NON e' un parametro libero: e' derivato dalla stessa temperatura
+        // usata sopra, per costruzione, cosicche' i due profili (temperatura e densita') non possano
+        // mai andare fuori sincrono come accadeva prima (temperatura ~r^-0.5 cablata, esponente di
+        // densita' impostato indipendentemente a -2 in parameters.txt). Derivazione: temperatura
+        // ~r^p implica velocita' del suono ~r^(p/2), scala di altezza H~r^(p/2+1.5) (Keplero fisso),
+        // e con la densita' superficiale MMSN standard (~r^-1.5, valore di letteratura, non esposto
+        // come parametro) la densita' di volume al midplane risulta ~r^(-3-p/2).
+        double gasProfileExponent = -3.0 - params.diskTemperatureExponent / 2.0;
+        double midplaneGasDensity = params.gasDensityBase * Math.pow(r3D / PhysicsConstants.AU, gasProfileExponent);
         
         double localGasDensity = midplaneGasDensity * Math.exp(-(z * z) / (2.0 * scaleHeight * scaleHeight));
 
@@ -121,7 +129,7 @@ public class Physics
 
         // 3. VELOCITÀ DEL GAS SOTTO-KEPLERIANA (PRESSIONE RADIALE)
         double hOverR = scaleHeight / r3D;
-        double eta = 0.5 * (hOverR * hOverR) * Math.abs(params.gasProfileExponent);
+        double eta = 0.5 * (hOverR * hOverR) * Math.abs(gasProfileExponent);
         
         double vKeplerian = omegaK * r3D;
         double vGasMag = vKeplerian * Math.sqrt(Math.max(0.0, 1.0 - eta));
@@ -136,10 +144,7 @@ public class Physics
         double sigmaH2 = 2.0e-19;
         double meanFreePath = mH2 / (Math.sqrt(2.0) * sigmaH2 * localGasDensity);
 
-        double R = p.getRadius(); // ora coerente: p.getRadius() deriva da p.getDensity(), che a sua
-                                    // volta segue densityForMass -- non piu' un riferimento fisso
-                                    // scollegato dalla densita' reale del corpo (era il disaccordo
-                                    // che avevamo trovato: il drag ignorava sempre la densita' vera).
+        double R = p.getRadius();
         double forceFactor;
 
         if (R <= (9.0 / 4.0) * meanFreePath) {
@@ -185,31 +190,7 @@ public class Physics
     //
     // RAGGI E GEOMETRIA DI CATTURA
     //
-    // Tre concetti fisicamente distinti convivevano qui sotto un solo nome ("raggio di cattura"),
-    // pur avendo significato e scala molto diversi:
-    //
-    //   1. Raggio di collisione fisica  -- getPhysicalCollisionRadius: le superfici si toccano o no,
-    //      indipendente da qualunque velocità o massa in gioco.
-    //   2. Raggio di focalizzazione gravitazionale -- getGravitationalFocusingRadius: la vera
-    //      distanza entro cui due corpi possono ANCORA scontrarsi pur con un parametro d'impatto
-    //      superiore alla somma dei raggi fisici, perché la mutua attrazione curva le traiettorie
-    //      durante l'avvicinamento (formula standard di Safronov). Dipende dalla velocità relativa
-    //      ed è sempre ancorata al raggio fisico di contatto -- non ha nulla a che fare con la
-    //      distanza dalla stella.
-    //   3. Sfera di Hill -- getHillRadius: la regione entro cui la gravità del corpo domina su
-    //      quella della stella. Risponde a una domanda diversa ("un satellite qui resta in orbita
-    //      stabile?"), non "questi due corpi collidono?".
-    //
-    // getEffectiveCaptureRadius, di fatto, usa oggi una frazione della sfera di Hill (3) come se
-    // fosse il raggio di focalizzazione gravitazionale (2) -- un'amplificazione artificiale e
-    // volutamente non fisica, tenuta così com'è (hillCaptureFraction) per velocizzare
-    // l'accrescimento esplorativo: con una vera formula di focalizzazione (ancorata al raggio
-    // fisico) l'accrescimento planetesimale richiederebbe tempi di calcolo enormemente più lunghi
-    // (è la "barriera dei metri" descritta nel README). getGravitationalFocusingRadius è fornito
-    // qui come riferimento fisicamente corretto e testabile, ma NON è collegato a checkCollision/
-    // evaluateCollision: cambiare quel collegamento cambierebbe il comportamento della simulazione,
-    // non solo la sua chiarezza concettuale.
-    //
+
 
     /** Raggio di collisione puramente fisico: la somma dei raggi reali dei due corpi. */
     public double getPhysicalCollisionRadius(Particle p1, Particle p2) {
@@ -242,14 +223,7 @@ public class Physics
         return r * Math.cbrt(p.getMass() / (3.0 * params.centralStarMass));
     }
 
-    /**
-     * Raggio di cattura EFFETTIVAMENTE usato da checkCollision/evaluateCollision/resolveBounce.
-     * ATTENZIONE: nonostante il nome, non implementa la focalizzazione gravitazionale reale
-     * (getGravitationalFocusingRadius) -- usa una frazione (hillCaptureFraction) della sfera di
-     * Hill come amplificazione artificiale, per accelerare l'accrescimento planetesimale a scapito
-     * del realismo fisico. Comportamento invariato rispetto a prima di questa nota: la formula è
-     * identica, solo documentata con precisione.
-     */
+
     public double getEffectiveCaptureRadius(Particle p) {
         double hillCapture = getHillRadius(p) * params.hillCaptureFraction;
         return Math.max(p.getRadius(), hillCapture);
@@ -267,10 +241,6 @@ public class Physics
     // Controllo di collisione continua (CCD) sul segmento REALMENTE percorso
     // in questo step: da previousPosition (inizio step) a position (fine step),
     // a velocità costante (coerente con l'integrazione Euler-Cromer).
-    // Usare p.getPosition() come punto di partenza, come in precedenza,
-    // controllava un ipotetico step FUTURO invece di verificare quello appena
-    // avvenuto: un corpo che tunnela e si allontana veniva perso perché a
-    // fine step la distanza attuale risultava già superiore alla soglia.
     public boolean checkCollision(Particle p1, Particle p2) {
         Vector3D x1_start = p1.getPreviousPosition();
         Vector3D x2_start = p2.getPreviousPosition();
@@ -338,13 +308,6 @@ public class Physics
             return CollisionResult.MERGE;
         }
         if (relSpeed > fragmentationThreshold) {
-            // Pavimento sul rapporto di massa: un impattore troppo piccolo non porta mai
-            // abbastanza energia da disgregare un bersaglio molto più massiccio, qualunque sia
-            // la sua velocità -- verificato con un caso reale (rapporto di massa 1,1e-4,
-            // v_rel=2735 m/s): l'energia cinetica dell'impattore era solo lo 0,01% dell'energia
-            // di legame gravitazionale del bersaglio, quattro ordini di grandezza sotto quanto
-            // servirebbe per una vera disgregazione catastrofica. Sotto la soglia, l'esito piu'
-            // plausibile e' un rimbalzo/cratere, non la frammentazione dell'intero sistema.
             double massRatio = Math.min(p1.getMass(), p2.getMass()) / Math.max(p1.getMass(), p2.getMass());
             if (massRatio >= params.minFragmentationMassRatio) {
                 return CollisionResult.FRAGMENT;
@@ -354,18 +317,9 @@ public class Physics
         return CollisionResult.BOUNCE;
     }
 
+
     /**
-     * Risolve l'urto anelastico fondendo la particella 'loser' dentro la particella 'winner'.
-     */
-    /**
-     * Densità in funzione della massa attuale del corpo -- sostituisce la vecchia logica basata
-     * su mergerCount (fragile: mergerCount è cumulativo sull'intero albero genealogico delle
-     * fusioni, non "quante volte questo corpo si è fuso di persona" -- il fattore di crescita
-     * osservato empiricamente variava da 1,01x a 1,36x a seconda della topologia dell'albero, non
-     * del numero di eventi). Usa invece lo stato presente (la massa), sempre ben definito
-     * indipendentemente da come il corpo ci è arrivato: una curva a saturazione da
-     * initialParticleDensity (corpi piccoli, porosi) verso compactedMaxDensity (roccia compatta),
-     * con compactionMassScale a controllare quanto in fretta.
+     * Densità in funzione della massa attuale del corpo
      */
     private double densityForMass(double mass) {
         double minDensity = params.initialParticleDensity;
@@ -373,7 +327,9 @@ public class Physics
         double massScale = params.initialParticleMassMax * params.compactionMassMaxMultiplier;
         return minDensity + (maxDensity - minDensity) * (1.0 - Math.exp(-mass / massScale));
     }
-
+    /**
+     * Risolve l'urto anelastico fondendo la particella 'loser' dentro la particella 'winner'.
+     */
     public void mergeParticles(Particle winner, Particle loser) {
         double totalMass = winner.getMass() + loser.getMass();
 
@@ -412,7 +368,9 @@ public class Physics
         Vector3D relVel = p1.getVelocity().subtract(p2.getVelocity());
         double velAlongNormal = relVel.dotProduct(normal);
 
-        // Se le particelle si stanno già allontanando, nessuna azione sugli impulsi
+        // I corpi si stanno avvicinando lungo la normale di contatto (velAlongNormal < 0, dato che
+        // "normal" punta da p2 verso p1): applica l'impulso solo in questo caso, altrimenti si
+        // starebbero gia' allontanando e un impulso aggiungerebbe energia invece di risolvere l'urto.
         if (velAlongNormal < 0) {
             double inverseMassSum = (1.0 / p1.getMass()) + (1.0 / p2.getMass());
             

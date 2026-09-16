@@ -40,7 +40,7 @@ minFragmentationMassRatio=0.01      # rapporto minimo tra le masse perche' avven
 # Drag / Gas
 compactedMaxDensity=3000.0          # kg/m^3, densita' della roccia pienamente compattata
 gasDensityBase=2.11e-6              # kg/m^3, densità base del gas nel disco
-gasProfileExponent=-2               # esponente del profilo radiale di densità del gas
+diskTemperatureExponent=-0.5        # esponente del profilo radiale di temperatura del gas
 compactionMassMaxMultiplier=100.0   # la compattazione diventa significativa quando un corpo supera initialParticleMassMax di questo fattore
 
 # Rendering / Diagnostica

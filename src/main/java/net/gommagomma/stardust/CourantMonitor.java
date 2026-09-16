@@ -74,15 +74,6 @@ public class CourantMonitor {
         return nominalDt;
     }
 
-    //
-    // Stato AGGREGATO dall'ultimo summary periodico -- distinto dallo stato per-step sopra.
-    // Toccato SOLO dal thread che orchestra step() (mai dai thread paralleli delle forze), quindi
-    // campi semplici, nessuna atomicità necessaria. Serve a non perdere la notizia di una
-    // riduzione sostenuta tra un summary e l'altro: il valore per-step da solo è una fotografia di
-    // un singolo istante a caso, che può benissimo cadere proprio nel momento in cui il Courant è
-    // sotto soglia anche in mezzo a un episodio di riduzione lungo migliaia di step.
-    //
-
     private int reductionsSinceLastSummary = 0;
     private double worstEffectiveDtSinceLastSummary = Double.POSITIVE_INFINITY;
     private double worstCourantSinceLastSummary = 0.0;

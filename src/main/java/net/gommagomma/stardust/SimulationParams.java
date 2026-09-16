@@ -41,8 +41,8 @@ public class SimulationParams
     public boolean enableElectrostaticForce;
 
     // Timestep adattivo (basato sul Courant preventivo)
-    public double courantSafetyThreshold = 0.5; // sopra questa soglia, dt viene ridotto per lo step corrente
-    public double minDtFraction = 0.05;         // pavimento: dt non scende mai sotto questa frazione del valore nominale
+    public double courantSafetyThreshold = 0.5;
+    public double minDtFraction = 0.05;
 
     // Collisioni
     public double hillCaptureFraction;
@@ -50,28 +50,13 @@ public class SimulationParams
     public double gravitationalCaptureMultiplier;
     public double mergeVelocityFloor;
     public double fragmentationMultiplier;
-    public double minFragmentationMassRatio = 0.01; // rapporto minimo massa_piccola/massa_grande perche' la
-                                                       // frammentazione sia un esito possibile: sotto questa
-                                                       // soglia, l'impattore e' troppo piccolo per portare
-                                                       // energia sufficiente a disgregare il bersaglio,
-                                                       // qualunque sia la velocita' (verificato con un caso
-                                                       // reale: rapporto 1e-4, energia dell'impattore solo
-                                                       // lo 0,01% dell'energia di legame del bersaglio).
+    public double minFragmentationMassRatio = 0.01;
 
     // Drag / Gas
-    public double compactedMaxDensity;     // Densita' della roccia pienamente compattata -- il tetto
-                                             // verso cui densityForMass fa convergere i corpi con la
-                                             // massa. Usata anche dal drag (tramite p.getRadius()),
-                                             // ma il suo ruolo primario oggi e' questo, non piu' il drag:
-                                             // rinominato da dragReferenceDensity per riflettere l'uso reale.
+    public double compactedMaxDensity;
     public double gasDensityBase;
-    public double gasProfileExponent;
-    public double compactionMassMaxMultiplier = 100.0; // adimensionale -- la compattazione diventa
-                                                          // significativa quando un corpo supera
-                                                          // initialParticleMassMax di questo fattore.
-                                                          // Generico rispetto al disco iniziale: si
-                                                          // riscala da solo con n/initialParticleMassMax,
-                                                          // a differenza di un valore assoluto in kg.
+    public double diskTemperatureExponent = -0.5;
+    public double compactionMassMaxMultiplier = 100.0;
 
     // Rendering / Diagnostica
     public double densityRingWidth;
@@ -83,15 +68,7 @@ public class SimulationParams
     public int screenshotEveryNSteps;
     public int fps;
     public int autosaveInterval;
-    public double archiveSavepointEventFraction = 0.01; // frazione di N attuale: soglia = max(1, round(N*frazione))
-                                                           // fusioni+frammentazioni cumulative dall'ultimo
-                                                           // archivio (i rimbalzi non contano: non cambiano
-                                                           // ne' N ne' la distribuzione di massa). Proporzionale
-                                                           // a N, non assoluta: a N grande la soglia e' alta
-                                                           // (fase densa, non serve archiviare ad ogni piccolo
-                                                           // evento), a N piccolo scende fino a 1 (altrimenti,
-                                                           // con una soglia assoluta fissa, rischierebbe di
-                                                           // non scattare mai piu' proprio nella fase piu' rara).
+    public double archiveSavepointEventFraction = 0.01;
 
 
     public SimulationParams(SimulationPaths paths) {
@@ -178,7 +155,7 @@ public class SimulationParams
             // --- Drag / Gas ---
             case "compactedMaxDensity":              compactedMaxDensity = Double.parseDouble(value); break;
             case "gasDensityBase":                  gasDensityBase = Double.parseDouble(value); break;
-            case "gasProfileExponent":              gasProfileExponent = Double.parseDouble(value); break;
+            case "diskTemperatureExponent":         diskTemperatureExponent = Double.parseDouble(value); break;
             case "compactionMassMaxMultiplier":     compactionMassMaxMultiplier = Double.parseDouble(value); break;
 
             // --- Rendering / Diagnostica ---

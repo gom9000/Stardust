@@ -55,7 +55,7 @@ public class BarnesHutTree {
 
         p.resetPotentialEnergy();
         ForceAccumulator acc = new ForceAccumulator();
-        double targetReach = physics.getCaptureReach(p); // calcolato UNA VOLTA per bersaglio, non per ogni foglia visitata
+        double targetReach = physics.getCaptureReach(p); // calcolato UNA VOLTA per bersaglio
         double targetMargin = p.getVelocity().magnitude() * params.dt; // stesso principio, per il margine di spostamento
 
         root.accumulateForce(p, thetaSq, acc, true, targetReach, targetMargin);
@@ -401,11 +401,7 @@ public class BarnesHutTree {
             }
 
             // Courant PREVENTIVO: questa è l'unica sede dove esiste una coppia ESATTA (non
-            // approssimata come nodo lontano) -- esattamente le coppie che contano per un
-            // controllo di prossimità, calcolato qui a costo pressoché nullo perché la distanza
-            // e le posizioni sono già in mano per il calcolo della forza appena fatto sopra.
-            // targetReach e' precalcolato una sola volta per bersaglio (vedi computeForce):
-            // solo other.getCaptureReach() viene ancora calcolato qui, una chiamata invece di due.
+            // approssimata come nodo lontano)
             double sumRadii = target.getRadius() + other.getRadius();
             double otherMargin = other.getVelocity().magnitude() * params.dt;
             if (sumRadii > 0 && dist <= targetReach + physics.getCaptureReach(other) + targetMargin + otherMargin) {

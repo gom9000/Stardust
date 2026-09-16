@@ -183,6 +183,23 @@ public class SimulationPanel extends JPanel {
         }
     }
 
+    /** Fattore di scala mondo->schermo (pixel per metro) */
+    private double computeScale() {
+        double maxExpectedRadius = params.diskOuterRadius;
+        double maxWindowRadius = Math.min(getWidth() / 2.0, getHeight() / 2.0) * 0.85;
+        double baseScale = maxWindowRadius / maxExpectedRadius;
+        return baseScale * zoomFactor;
+    }
+
+    /** Dimensione in pixel di un corpo per il rendering (e per il calcolo della tolleranza di
+     *  click, che deve corrispondere esattamente a quanto disegnato) -- stessa formula per i due
+     *  usi, prima duplicata in quattro punti. */
+    private double particleSizePx(double radiusRatio, boolean isMerged) {
+        return isMerged ?
+                Math.min(24, (3 + Math.log(radiusRatio) * 2.0) * Math.sqrt(zoomFactor)) :
+                Math.min(16, (1.5 + Math.log(radiusRatio) * 1.5) * Math.sqrt(zoomFactor));
+    }
+
     private void handleMouseClick(int mouseX, int mouseY, boolean isCtrlPressed, boolean isShiftPressed) {
         this.requestFocusInWindow();
 
@@ -192,17 +209,10 @@ public class SimulationPanel extends JPanel {
             int centerX = (int) (getWidth() / 2.0 + panX);
             int centerY = (int) (getHeight() / 2.0 + panY);
 
-            double maxExpectedRadius = params.diskOuterRadius;
-            double maxWindowRadius = Math.min(getWidth() / 2.0, getHeight() / 2.0) * 0.85;
-            double baseScale = maxWindowRadius / maxExpectedRadius;
-            double scale = baseScale * zoomFactor;
+            double scale = computeScale();
 
             // Se la vista co-rotante è attiva, il rendering ruota il mondo attorno alla particella
-            // selezionata (vedi paintComponent): l'hit-test deve applicare la STESSA rotazione,
-            // altrimenti testa posizioni diverse da quelle mostrate a schermo. Si calcola quindi
-            // prima l'indice/angolo di riferimento della particella oggi selezionata (se la vista
-            // co-rotante è attiva), poi si trasformano le posizioni di TUTTE le particelle di
-            // conseguenza prima del confronto con il punto cliccato.
+            // selezionata
             int refIdx = -1;
             double cosA = 1.0, sinA = 0.0;
             double refX = 0.0, refY = 0.0;
@@ -242,11 +252,9 @@ public class SimulationPanel extends JPanel {
                 double distSq = dx * dx + dy * dy;
                 
                 double radiusRatio = Math.max(1.0, renderRadius[i] / MIN_PARTICLE_RADIUS);
-                double particleSizePx = renderIsMerged[i] ?
-                        Math.min(24, (3 + Math.log(radiusRatio) * 2.0) * Math.sqrt(zoomFactor)) :
-                        Math.min(16, (1.5 + Math.log(radiusRatio) * 1.5) * Math.sqrt(zoomFactor));
+                double sizePx = particleSizePx(radiusRatio, renderIsMerged[i]);
                 
-                double hitTolerance = Math.max(12.0, particleSizePx / 2.0 + 4.0);
+                double hitTolerance = Math.max(12.0, sizePx / 2.0 + 4.0);
                 double allowedDistSq = hitTolerance * hitTolerance;
 
                 if (distSq < allowedDistSq && distSq < minDistSq) {
@@ -371,10 +379,7 @@ public class SimulationPanel extends JPanel {
             }
         }
 
-        double maxExpectedRadius = params.diskOuterRadius;
-        double maxWindowRadius = Math.min(getWidth() / 2.0, getHeight() / 2.0) * 0.85;
-        double baseScale = maxWindowRadius / maxExpectedRadius;
-        double scale = baseScale * zoomFactor;
+        double scale = computeScale();
 
         AffineTransform worldTransform = new AffineTransform();
         double panelCenterX = getWidth() / 2.0;
@@ -466,7 +471,7 @@ public class SimulationPanel extends JPanel {
 
             if (merged[i]) {
                 double radiusRatio = Math.max(1.0, r / MIN_PARTICLE_RADIUS);
-                double sizePx = Math.min(24, (3 + Math.log(radiusRatio) * 2.0) * Math.sqrt(zoomFactor));
+                double sizePx = particleSizePx(radiusRatio, true);
                 sizePx = Math.max(3, sizePx);
                 double sizeWorld = sizePx / scale;
 
@@ -484,7 +489,7 @@ public class SimulationPanel extends JPanel {
 
             } else {
                 double radiusRatio = Math.max(1.0, r / MIN_PARTICLE_RADIUS);
-                double sizePx = Math.min(16, (1.5 + Math.log(radiusRatio) * 1.5) * Math.sqrt(zoomFactor));
+                double sizePx = particleSizePx(radiusRatio, false);
                 sizePx = Math.max(1, sizePx);
                 double sizeWorld = sizePx / scale;
 
