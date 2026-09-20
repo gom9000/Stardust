@@ -106,9 +106,9 @@ Rapporto adimensionale tra quanto un corpo si sposta durante un singolo passo di
 
 
 ## Collocazione e perimetro di Stardust
-Questo motore di simulazione si colloca nella Fase 4. L'architettura non risolve la microfisica di superficie né la fluidodinamica del gas, ma ne include l'effetto dinamico tramite una forza di drag con transizione tra i regimi di Epstein e Stokes. La frammentazione è modellata in forma semplificata, con conservazione della quantità di moto tra i frammenti generati. Il cuore del motore resta l'interazione gravitazionale reciproca, ottimizzata tramite algoritmi gerarchici come Barnes-Hut per scalare in modo efficiente sul numero di corpi.
+Questo motore di simulazione include un modello di interazione coulombiana e un modello di drag relativo al gas, quest'ultimo visto solo come un campo di sfondo che frena i corpi ma non ne subisce mai l'effetto di ritorno (la streaming instability della Fase 3). La logica che decide l'esito di un incontro ravvicinato tra due corpi è soltanto **gravitazionale** (raggio di Hill, velocità di fuga), mancando una vera fisica di adesione superficiale dovuta a van der Waals e forze di contatto. Attualmente, quindi, il motore rappresenta meglio la Fase 4 di accrescimento di planetesimi. L'architettura non risolve la microfisica di superficie né la fluidodinamica del gas, ma ne include l'effetto dinamico tramite una forza di drag con transizione tra i regimi di Epstein e Stokes. La frammentazione è modellata in forma semplificata, con conservazione della quantità di moto tra i frammenti generati. Il cuore del motore resta l'interazione gravitazionale reciproca, ottimizzata tramite algoritmi gerarchici come Barnes-Hut per scalare in modo efficiente sul numero di corpi.
 
->Il motore include anche un modello di interazione coulombiana (disattivato di default, poiché ininfluente alle masse tipiche della Fase 4), predisposto come base per un'eventuale estensione futura verso le fasi di coagulazione della polvere.
+>Il modello di interazione coulombiana è disattivabile, poiché ininfluente alle masse tipiche della Fase 4.
 
 
 ## Il ciclo di simulazione (`SimulationEngine.step()`)

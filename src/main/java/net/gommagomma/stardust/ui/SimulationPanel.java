@@ -183,7 +183,9 @@ public class SimulationPanel extends JPanel {
         }
     }
 
-    /** Fattore di scala mondo->schermo (pixel per metro) */
+    /** Fattore di scala mondo->schermo (pixel per metro), condiviso da rendering e hit-test del
+     *  click del mouse -- prima calcolato due volte indipendentemente, rischiando di disallinearsi
+     *  se una delle due copie veniva modificata senza l'altra. */
     private double computeScale() {
         double maxExpectedRadius = params.diskOuterRadius;
         double maxWindowRadius = Math.min(getWidth() / 2.0, getHeight() / 2.0) * 0.85;
@@ -212,7 +214,11 @@ public class SimulationPanel extends JPanel {
             double scale = computeScale();
 
             // Se la vista co-rotante è attiva, il rendering ruota il mondo attorno alla particella
-            // selezionata
+            // selezionata (vedi paintComponent): l'hit-test deve applicare la STESSA rotazione,
+            // altrimenti testa posizioni diverse da quelle mostrate a schermo. Si calcola quindi
+            // prima l'indice/angolo di riferimento della particella oggi selezionata (se la vista
+            // co-rotante è attiva), poi si trasformano le posizioni di TUTTE le particelle di
+            // conseguenza prima del confronto con il punto cliccato.
             int refIdx = -1;
             double cosA = 1.0, sinA = 0.0;
             double refX = 0.0, refY = 0.0;
@@ -537,7 +543,7 @@ public class SimulationPanel extends JPanel {
                              mass[selectedIdx], radius[selectedIdx], merged[selectedIdx], hasGapActive, isCoRotatingViewActive);
         }
 
-        drawTimeHUD(g2, simulatedTimeSeconds, currentDtSeconds, ids.length);
+        drawTimeHUD(g2, simulatedTimeSeconds, currentDtSeconds, count);
 
         // 6. Overlay di Pausa
         if (isPaused) {
