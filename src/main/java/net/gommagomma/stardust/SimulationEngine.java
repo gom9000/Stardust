@@ -561,10 +561,10 @@ public class SimulationEngine {
                 : "";
 
         logger.log(String.format(
-                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant: %.2f%s | dt: %.1fs%s%s | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms",
+                "[t=%13.1fs] ENERGIA: %.8e J | STATO: %d particelle | Courant: %.2f%s | dt: %.1fs%s%s | massa tot=%.4e kg | massa max=%.4e kg | raggio max=%.4e m | fusioni=%d | rimbalzi=%d | frammentazioni=%d | cadute=%d | fughe=%d | Forze: %.2f ms | Integrazioni: %.2f ms | Collisioni: %.2f ms | TPS: %.1f",
                 metrics.getSimulationTime(), totalMechanicalEnergy,
                 aliveCount, courantMonitor.getMax(), pairInfo, effectiveDt, (dtWasReduced ? " [RIDOTTO]" : ""), intervalInfo, totalMass, maxMass, maxRadius, 
                 metrics.getTotalMerges(), metrics.getTotalBounces(), metrics.getTotalFragmentations(), metrics.getTotalStarFalls(), metrics.getTotalEscapes(), 
-                forceMs, integrationMs, collisionMs));
+                forceMs, integrationMs, collisionMs, currentTPS));
     }
 }
