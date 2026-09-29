@@ -38,15 +38,24 @@ public class Stardust
     public static void main(String[] args)
     throws Exception
     {
-    	String simulationId = (args.length > 0 && !args[0].isBlank())
-                ? args[0]
-                : "disk-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+    	boolean headless = false;
+        String simulationId = null;
+
+        for (String arg : args) {
+            if (arg.equals("--headless")) {
+                headless = true;
+            } else if (simulationId == null && !arg.isBlank()) {
+                simulationId = arg;
+            }
+        }
+        if (simulationId == null) {
+            simulationId = "disk-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        }
 
         Stardust stardust = new Stardust(simulationId);
         stardust.setParticles(createProtoplanetaryDisk(stardust.getContext()));
-        stardust.start();
+        stardust.start(headless);
     }
-
 
     public Stardust(String simulationId)
     throws IOException
@@ -71,16 +80,46 @@ public class Stardust
         this.particles = particles;
     }
 
-    public void start()
+    public void start(boolean headless)
     {
         engine = initEngine();
         runsLogger.log(String.format("START wall=%s simTime=%.1f", LocalDateTime.now(), engine.getMetrics().getSimulationTime()));
         engineThread = startEngineThread();
+        
+        startAutosaveLoop();
+
         SimulationPanel panel = new SimulationPanel(engine, params);
+        if (headless) {
+        	panel.setSize(800, 800);
+            startRenderLoop(null, panel);
+            runHeadless();
+            return;
+        }
         JFrame frame = setupWindow(panel);
 
         startRenderLoop(frame, panel);
-        startAutosaveLoop();
+    }
+
+    private void runHeadless()
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Segnale di terminazione ricevuto: stop dell'engine e salvataggio del savepoint...");
+            engine.stop();
+            try {
+                engineThread.join(10000);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            saveSavepoint();
+            runsLogger.log(String.format("STOP  wall=%s simTime=%.1f", LocalDateTime.now(), engine.getMetrics().getSimulationTime()));
+        }, "shutdown-savepoint-thread"));
+
+        System.out.println("Modalità headless attiva (nessuna GUI). Ctrl+C o SIGTERM per fermare e salvare.");
+        try {
+            engineThread.join();
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private SimulationEngine initEngine()

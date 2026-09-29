@@ -4,7 +4,7 @@ centralStarRadius=6.963e8           # m
 centralStarDensity=1408.0           # kg/m^3
 
 # Disco iniziale
-n=15000                             # numero di particelle
+n=5000                             # numero di particelle
 diskInnerRadiusAU=0.3               # AU
 diskOuterRadiusAU=0.7               # AU
 initialParticleMassMin=2e19         # kg
@@ -15,7 +15,7 @@ initialMaxCharge=1e-9               # C
 massPowerLawIndex=1.2               # esponente distribuzione a potenza delle masse
 
 # Gravità
-dt=300.0                            # secondi per step
+dt=1800.0                            # secondi per step
 softening=1.0                       # m (softening di Plummer)
 useParallelForces=true
 useBarnesHut=true

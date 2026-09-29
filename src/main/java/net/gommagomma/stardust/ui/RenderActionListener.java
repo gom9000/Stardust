@@ -55,7 +55,9 @@ implements ActionListener
 
         if (elapsed >= 1000) {
             double fps = (frameCount * 1000.0) / elapsed;
-            frame.setTitle(String.format("%s (FPS: %.1f | TPS: %.1f)", baseTitle, fps, engine.getCurrentTPS()));
+            if (frame != null) {
+                frame.setTitle(String.format("%s (FPS: %.1f | TPS: %.1f)", baseTitle, fps, engine.getCurrentTPS()));
+            }
 
             frameCount = 0;
             lastFpsCheckTime = now;

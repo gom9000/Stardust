@@ -22,7 +22,7 @@ public class SolarSystemDemo
         params.topOrbitsCount=8;
         params.logSummaryEveryNSteps=0;
         stardust.setParticles(createSolarSystem(params));
-        stardust.start();
+        stardust.start(false);
     }
 
     private static List<Particle> createSolarSystem(SimulationParams params)

@@ -19,7 +19,7 @@ public class SunEarthMoonDemo
         params.diskOuterRadius=1.2 * PhysicsConstants.AU;
         params.logSummaryEveryNSteps=0;
         stardust.setParticles(createHierarchicalSystem(stardust.getContext()));
-        stardust.start();
+        stardust.start(false);
     }
 
 
