@@ -171,6 +171,9 @@ mvn clean package
 # Simulazione standard (disco protoplanetario), ID generato automaticamente da timestamp:
 mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Stardust"
 
+# Senza interfaccia grafica: basta aggiungere --headless,
+mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Stardust" -Dexec.args="--headless mia-simulazione"
+
 # Con un ID esplicito (per riprendere una simulazione specifica o tenerne più di una separate):
 mvn exec:java -Dexec.mainClass="net.gommagomma.stardust.Stardust" -Dexec.args="mia-simulazione"
 
