@@ -220,12 +220,16 @@ public class Stardust
         double exp = 1.0 - params.massPowerLawIndex;
         double mMinExp = Math.pow(params.initialParticleMassMin, exp);
         double mMaxExp = Math.pow(params.initialParticleMassMax, exp);
-        double r2Min = params.diskInnerRadius * params.diskInnerRadius;
-        double r2Max = params.diskOuterRadius * params.diskOuterRadius;
+        //double r2Min = params.diskInnerRadius * params.diskInnerRadius;
+        //double r2Max = params.diskOuterRadius * params.diskOuterRadius;
+        double sqrtRMin = Math.sqrt(params.diskInnerRadius);
+        double sqrtRMax = Math.sqrt(params.diskOuterRadius);
 
         for (int ii = 0; ii < params.n; ii++)
         {
-            double r = Math.sqrt(r2Min + rnd.nextDouble() * (r2Max - r2Min));
+        	double rRoot = sqrtRMin + rnd.nextDouble() * (sqrtRMax - sqrtRMin);
+            double r = rRoot * rRoot;
+            //double r = Math.sqrt(r2Min + rnd.nextDouble() * (r2Max - r2Min));
             double theta = rnd.nextDouble() * 2 * Math.PI;
 
             double x = r * Math.cos(theta);

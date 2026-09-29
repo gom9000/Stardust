@@ -6,7 +6,7 @@ centralStarDensity=1408.0           # kg/m^3
 # Disco iniziale
 n=15000                             # numero di particelle
 diskInnerRadiusAU=0.3               # AU
-diskOuterRadiusAU=0.7               # AU
+diskOuterRadiusAU=1.7               # AU
 initialParticleMassMin=2e19         # kg
 initialParticleMassMax=2e21         # kg
 initialVelocityDispersion=0.005     # frazione della velocità orbitale kepleriana
